@@ -2,442 +2,461 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   Folder, 
-  Image as ImageIcon, 
   Scan, 
   X, 
   FileText, 
   RefreshCw, 
-  Crosshair,
   BookOpen,
   Table as TableIcon,
-  Download,
-  AlertCircle,
   Camera,
-  Wifi,
-  WifiOff,
   Play,
   Square,
-  Key
+  ImageIcon,
+  Terminal as TerminalIcon,
+  Activity,
+  Trash2
 } from 'lucide-react';
 
 /**
- * OCRScannerModule (REST API + SDK Camera INTEGRATION)
- * Modul untuk ekstraksi teks dengan opsi kamera perangkat (SDK) atau upload file.
- * Diperbarui: Sinkronisasi penuh preview streaming ke sidebar utama saat kamera aktif.
+ * OCRScannerModule (Browser Camera + Polygon Edge Detection)
+ * Diperbarui: Menambahkan Terminal Log sesuai referensi PassportScannerModule.
  */
-const OCRScannerModule = ({ 
-  data, 
-  setLogs 
-}) => {
-  const fileInputRef = useRef(null);
+const App = ({ data, setLogs: setGlobalLogs }) => {
+  const [inputMode, setInputMode] = useState('camera'); // 'camera' atau 'file'
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
-  const [subTab, setSubTab] = useState('text'); 
-  const [hasBuffer, setHasBuffer] = useState(false);
+  const [subTab, setSubTab] = useState('text');
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [hasFileBuffer, setHasFileBuffer] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  // const [logs, setLogs] = useState([`[SYSTEM] Passport Intelligence v1.7 Online.`]);
 
-  // --- STATE UNTUK INTEGRASI KAMERA SDK ---
-  const [inputMode, setInputMode] = useState('file'); // 'file' atau 'camera'
-  const [connStatus, setConnStatus] = useState({ cmd: false, mc: false });
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [lastFrame, setLastFrame] = useState(null); 
-  const [license, setLicense] = useState("");
-  const [isLicenseActive, setIsLicenseActive] = useState(false);
+  // State Log Lokal (Sesuai Referensi)
+  const [logs, setLogs] = useState([`[SYSTEM] OCR Intelligence v2.1 Online.`]);
+
+  // Refs untuk Camera & Canvas logic
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const resultCanvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   
-  const wsCmd = useRef(null);
-  const wsMc = useRef(null);
+  // State untuk Polygon (Draggable Points)
+  const [polygon, setPolygon] = useState(null);
+  const draggingPointIndex = useRef(-1);
+  const dragOffset = useRef({ x: 0, y: 0 });
 
-  // Inisialisasi & Cleanup
-  useEffect(() => {
-    console.log("[DEBUG] OCR Module Ready. Endpoint: http://localhost:8001");
-    return () => {
-      // Tutup koneksi dan bersihkan preview saat pindah modul
-      if (wsCmd.current) wsCmd.current.close();
-      if (wsMc.current) wsMc.current.close();
-      window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
-    };
-  }, []);
+  const BASE_URL = "http://localhost:5160";
 
-  // Reset preview saat ganti mode input
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
-    if (isCameraOpen) {
-      toggleCamera(); // Tutup kamera jika sedang terbuka saat pindah mode
-    }
-  }, [inputMode]);
-
-  // --- LOGIKA KONEKSI SDK ---
-  const connectSDK = (type) => {
-    const ports = { cmd: 25014, mc: 9999 };
-    const url = `ws://127.0.0.1:${ports[type]}/`;
-
-    try {
-      const ws = new WebSocket(url);
-      ws.onopen = () => {
-        setConnStatus(prev => ({ ...prev, [type]: true }));
-        setLogs(p => [...p, `[SDK] Terhubung ke Service ${type.toUpperCase()}`]);
-        
-        if (type === 'mc') {
-          ws.onmessage = (e) => {
-            const base64Data = 'data:image/jpeg;base64,' + e.data;
-            setLastFrame(base64Data);
-            // KIRIM STREAM KE SIDEBAR UTAMA
-            window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: base64Data }));
-          };
-        }
-
-        if (type === 'cmd') {
-          ws.onmessage = (e) => {
-            try {
-              const res = JSON.parse(e.data);
-              if (res.id === 2) { // Response inisialisasi
-                if (res.error === 0 || res.error === 9) {
-                  setIsLicenseActive(true);
-                  setLogs(p => [...p, `[SUCCESS] Lisensi SDK Berhasil Diaktifkan.`]);
-                } else {
-                  setLogs(p => [...p, `[ERROR] Aktivasi Lisensi Gagal: Kode ${res.error}`]);
-                }
-              }
-            } catch (err) {}
-          };
-        }
-      };
-      ws.onclose = () => {
-        setConnStatus(prev => ({ ...prev, [type]: false }));
-        if (type === 'mc') window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
-      };
-      if (type === 'cmd') wsCmd.current = ws;
-      if (type === 'mc') wsMc.current = ws;
-    } catch (e) {
-      setLogs(p => [...p, `[ERROR] SDK Connection Failed: ${e.message}`]);
-    }
-  };
-
-  const handleInitSDK = () => {
-    if (wsCmd.current?.readyState === WebSocket.OPEN) {
-      setLogs(p => [...p, `[ACTION] Mengirim permintaan lisensi...`]);
-      wsCmd.current.send(JSON.stringify({ id: 1, license: license }));
-    } else {
-      setLogs(p => [...p, `[ERROR] Hubungkan CMD Service terlebih dahulu.`]);
-    }
-  };
-
-  const toggleCamera = () => {
-    if (!connStatus.cmd || !isLicenseActive) {
-      setLogs(p => [...p, `[ERROR] Pastikan SDK terhubung dan Lisensi Aktif.`]);
-      return;
-    }
-    if (isCameraOpen) {
-      wsCmd.current.send(JSON.stringify({ id: 11, index: 0 }));
-      setIsCameraOpen(false);
-      setLogs(p => [...p, `[SDK] Kamera dinonaktifkan.`]);
-      window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
-    } else {
-      wsCmd.current.send(JSON.stringify({ id: 9, index: 0 }));
-      setIsCameraOpen(true);
-      setLogs(p => [...p, `[SDK] Membuka aliran video ke sidebar...`]);
-    }
-  };
-
-  const base64ToFile = (base64String, filename) => {
-    const arr = base64String.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new File([u8arr], filename, { type: mime });
-  };
-
-  const handleCaptureFromCamera = () => {
-    if (!lastFrame) {
-      setLogs(p => [...p, `[ERROR] Tidak ada frame streaming untuk ditangkap.`]);
-      return;
-    }
-    const file = base64ToFile(lastFrame, "camera_capture.jpg");
-    setSelectedFile(file);
-    setHasBuffer(true);
-    setLogs(p => [...p, `[SYSTEM] Frame dikunci. Siap untuk ekstraksi OCR.`]);
+  // Helper untuk menambahkan log
+  const addModuleLog = (msg, type = "info") => {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
+    const newLog = `${prefix} ${msg} (${timestamp})`;
+    setLogs(prev => [newLog, ...prev].slice(0, 50));
     
-    // Tampilkan frame statis hasil capture di sidebar (bukan streaming lagi)
-    window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: lastFrame }));
+    // Sinkronisasi ke sidebar global jika prop tersedia
+    if (setGlobalLogs) {
+      setGlobalLogs(prev => [newLog, ...prev]);
+    }
   };
 
+  // --- LOGIKA KAMERA ---
+  const startCamera = async () => {
+    try {
+      addModuleLog("Memulai inisialisasi kamera browser...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 3264 }, height: { ideal: 2448 } }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCameraActive(true);
+        addModuleLog("Kamera berhasil diaktifkan.", "success");
+      }
+    } catch (err) {
+      addModuleLog(`Akses kamera ditolak: ${err.message}`, "error");
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      setIsCameraActive(false);
+      addModuleLog("Aliran kamera dihentikan.");
+      window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
+    }
+  };
+
+  // --- IMAGE FILTERS ---
+  const sharpen = (ctx, w, h) => {
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+    const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+    const copy = new Uint8ClampedArray(data);
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        for (let c = 0; c < 3; c++) {
+          let sum = 0;
+          for (let ky = -1; ky <= 1; ky++) {
+            for (let kx = -1; kx <= 1; kx++) {
+              const i = ((y + ky) * w + (x + kx)) * 4 + c;
+              const k = kernel[(ky + 1) * 3 + (kx + 1)];
+              sum += copy[i] * k;
+            }
+          }
+          const i = (y * width + x) * 4 + c;
+          data[i] = Math.min(255, Math.max(0, sum));
+        }
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
+
+  // --- POLYGON INTERACTION ---
+  const getMousePos = (canvas, e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+  };
+
+  const handleMouseDown = (e) => {
+    if (!polygon || !canvasRef.current) return;
+    const pos = getMousePos(canvasRef.current, e);
+    let index = -1;
+    let minDist = Infinity;
+    polygon.forEach((p, i) => {
+      const dist = Math.hypot(p.x - pos.x, p.y - pos.y);
+      if (dist < 40 && dist < minDist) {
+        minDist = dist;
+        index = i;
+      }
+    });
+    if (index !== -1) {
+      draggingPointIndex.current = index;
+      dragOffset.current = { x: polygon[index].x - pos.x, y: polygon[index].y - pos.y };
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (draggingPointIndex.current === -1 || !polygon || !canvasRef.current) return;
+    const pos = getMousePos(canvasRef.current, e);
+    const newPoly = [...polygon];
+    newPoly[draggingPointIndex.current] = {
+      x: Math.max(0, Math.min(canvasRef.current.width, pos.x + dragOffset.current.x)),
+      y: Math.max(0, Math.min(canvasRef.current.height, pos.y + dragOffset.current.y))
+    };
+    setPolygon(newPoly);
+  };
+
+  const handleMouseUp = () => { draggingPointIndex.current = -1; };
+
+  // --- SINKRONISASI LOG KE SIDEBAR ---
+    useEffect(() => {
+      window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
+    }, [logs]);
+  
+    const addLog = (msg, type = "info") => {
+      const timestamp = new Date().toLocaleTimeString();
+      const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
+      setLogs(prev => [`${prefix} ${msg} (${timestamp})`, ...prev].slice(0, 50));
+    };
+    
+  // --- LOOP ANIMASI PREVIEW ---
+  useEffect(() => {
+    let animationFrame;
+    const detect = () => {
+      if (isCameraActive && videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+
+        if (video.videoWidth > 0) {
+          canvas.width = 800;
+          canvas.height = 600;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          if (!polygon) {
+            setPolygon([
+              { x: canvas.width * 0.15, y: canvas.height * 0.2 },
+              { x: canvas.width * 0.85, y: canvas.height * 0.2 },
+              { x: canvas.width * 0.85, y: canvas.height * 0.85 },
+              { x: canvas.width * 0.15, y: canvas.height * 0.85 }
+            ]);
+          }
+
+          if (polygon) {
+            ctx.strokeStyle = "#00ffff";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(polygon[0].x, polygon[0].y);
+            polygon.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.closePath();
+            ctx.stroke();
+            polygon.forEach(p => {
+              ctx.fillStyle = "#ff0000";
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          }
+
+          const previewData = canvas.toDataURL('image/jpeg', 0.5);
+          window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: previewData }));
+        }
+      }
+      animationFrame = requestAnimationFrame(detect);
+    };
+    detect();
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isCameraActive, polygon]);
+
+  // --- HANDLERS ---
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        setLogs(p => [...p, `[ERROR] Format file tidak didukung.`]);
-        return;
-      }
       const url = URL.createObjectURL(file);
       setSelectedFile(file);
-      setHasBuffer(true);
+      setHasFileBuffer(true);
       window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: url }));
-      setLogs(p => [...p, `[FILE] Memuat berkas: ${file.name}`]);
-      setExtractedData(null);
+      addModuleLog(`Berkas dimuat: ${file.name}`, "success");
     }
   };
 
-  /**
-   * INTEGRASI API: Parse Document
-   */
   const handleExtract = async () => {
-    if (!hasBuffer || !selectedFile) return;
+    if (inputMode === 'camera' && (!isCameraActive || !polygon)) return;
+    if (inputMode === 'file' && !selectedFile) return;
+
     setIsProcessing(true);
-    setLogs(p => [...p, `[ACTION] Mengirim data ke mesin OCR...`]);
-    
+    addModuleLog("Menjalankan pemrosesan citra & OCR Engine...");
+
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      const parseResponse = await fetch('http://localhost:8001/parse-document', {
-        method: 'POST',
-        body: formData,
-        mode: 'cors',
-      });
+      const resCanvas = resultCanvasRef.current;
+      const ctx = resCanvas.getContext('2d');
+      let blob;
 
-      if (!parseResponse.ok) {
-        const errorText = await parseResponse.text();
-        throw new Error(`Server Error (${parseResponse.status}): ${errorText}`);
-      }
-      
-      const parseResult = await parseResponse.json();
-      const requestId = parseResult.request_id;
-      const resultResponse = await fetch(`http://localhost:8001/get-result/${requestId}`, {
-        method: 'GET',
-        mode: 'cors'
-      });
-      
-      if (!resultResponse.ok) throw new Error('Gagal mengambil hasil ekstraksi.');
-      const resultData = await resultResponse.json();
+      if (inputMode === 'camera') {
+        const video = videoRef.current;
+        const xs = polygon.map(p => p.x);
+        const ys = polygon.map(p => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const w = maxX - minX;
+        const h = maxY - minY;
 
-      if (resultData.status === "success") {
-        setExtractedData(resultData.data);
-        setLogs(p => [...p, `[SUCCESS] OCR Berhasil dalam ${resultData.process_time_seconds}s.`]);
+        const scaleX = video.videoWidth / 800;
+        const scaleY = video.videoHeight / 600;
+
+        resCanvas.width = w * scaleX;
+        resCanvas.height = h * scaleY;
+        ctx.drawImage(video, minX * scaleX, minY * scaleY, w * scaleX, h * scaleY, 0, 0, resCanvas.width, resCanvas.height);
+        
+        blob = await new Promise(r => resCanvas.toBlob(r, 'image/jpeg', 0.95));
       } else {
-        throw new Error(resultData.message || 'Status ekstraksi gagal.');
+        blob = selectedFile;
       }
-    } catch (error) {
-      setLogs(p => [...p, `[ERROR] ${error.message}`]);
+
+      const formData = new FormData();
+      formData.append("image", blob, "capture.jpg");
+
+      const response = await fetch(`${BASE_URL}/api/ocr/doc_img`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) throw new Error("Gagal menghubungi server OCR.");
+      const json = await response.json();
+
+      setExtractedData({
+        text: json.raw ? json.raw.split('\n') : ["[Data Kosong]"],
+        visualization_base64: "data:image/jpeg;base64," + json.image,
+        markdown_source: json.raw || ""
+      });
+      addModuleLog("Ekstraksi OCR berhasil diselesaikan.", "success");
+
+    } catch (err) {
+      addModuleLog(`Ekstraksi Gagal: ${err.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const clearBuffer = () => {
-    setHasBuffer(false);
-    setSelectedFile(null);
-    window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
-    setExtractedData(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    setLogs(p => [...p, `[SYSTEM] Buffer terminal dikosongkan.`]);
-  };
-
   const renderResultContent = () => {
-    if (!extractedData) {
-      return (
-        <div className="text-center w-full">
-          <span className="text-[14px] text-zinc-600 uppercase block mb-3 tracking-[0.3em] font-black italic">
-            [ {isProcessing ? "PROCESSING_STREAM" : "WAITING_FOR_DATA"} ]
-          </span>
-          <div className="px-4 py-4 border border-[#00ffff]/5 bg-[#00ffff]/5 inline-block min-w-[200px]">
-            <h4 className="text-[14px] font-mono text-[#00ffff]/40 uppercase tracking-widest italic text-center">
-              {isProcessing ? "Menghubungi Server..." : "--- Buffer Kosong ---"}
-            </h4>
-          </div>
-        </div>
-      );
-    }
+    if (!extractedData) return (
+      <div className="flex flex-col items-center justify-center h-full opacity-20 py-10">
+        <Scan size={48} className={isProcessing ? "animate-pulse text-[#00ffff]" : ""} />
+        <span className="text-[12px] font-black uppercase tracking-[0.3em] mt-4">Menunggu Output Data</span>
+      </div>
+    );
 
-    switch (subTab) {
-      case 'visual':
-        return (
-          <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-500">
-             <div className="text-[10px] text-[#00ffff]/60 uppercase mb-4 font-black flex items-center gap-2">
-                <Download size={12} /> Visualization_Output_Buffer
-             </div>
-             <div className="border-2 border-[#00ffff]/20 p-2 bg-black/40 rounded-sm">
-                <img src={extractedData.visualization_base64} alt="OCR Visualization" className="max-w-full h-auto rounded-sm shadow-[0_0_20px_rgba(0,255,255,0.1)]" />
-             </div>
-          </div>
-        );
-      case 'markdown':
-        return (
-          <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-x-auto custom-scrollbar">
-            <pre className="text-[12px] font-mono text-zinc-400 bg-black/40 p-4 border border-zinc-800 rounded-sm leading-relaxed whitespace-pre-wrap">
-              {extractedData.markdown_source}
-            </pre>
-          </div>
-        );
-      default:
-        return (
-          <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-2">
+    return (
+      <div className="w-full animate-in fade-in duration-500 overflow-y-auto custom-scrollbar h-full text-left">
+        {subTab === 'text' && (
+          <div className="space-y-1">
             {extractedData.text.map((line, i) => (
-              <div key={i} className="flex gap-4 items-start font-mono group">
-                <span className="text-[10px] text-zinc-700 w-6 shrink-0 mt-1">{(i+1).toString().padStart(2, '0')}</span>
-                <span className="text-[14px] text-[#00ffff] group-hover:bg-[#00ffff]/10 px-1 transition-colors">{line}</span>
+              <div key={i} className="flex gap-4 group">
+                <span className="text-[10px] text-zinc-700 w-6 shrink-0 mt-1">{i+1}</span>
+                <span className="text-[13px] text-[#00ffff]">{line}</span>
               </div>
             ))}
           </div>
-        );
-    }
+        )}
+        {subTab === 'visual' && (
+          <div className="flex justify-center">
+             <img src={extractedData.visualization_base64} className="max-w-full border-2 border-[#00ffff]/20 rounded" alt="OCR Visual" />
+          </div>
+        )}
+        {subTab === 'markdown' && (
+          <pre className="text-[11px] text-zinc-400 whitespace-pre-wrap">{extractedData.markdown_source}</pre>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="flex-1 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar text-left">
-      <div className="flex flex-col lg:flex-row gap-8 items-start shrink-0">
+    <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar font-mono">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start shrink-0">
         
-        {/* Panel Kontrol OCR */}
-        <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-900/60 p-6 relative rounded-sm flex flex-col gap-4 shadow-2xl w-full">
-          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[14px] font-black uppercase z-[50] font-mono shadow-[4px_4px_0px_#00ffff]">OCR Processing Terminal</div>
+        {/* PANEL KONTROL */}
+        <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm shadow-2xl flex flex-col gap-4">
+          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[12px] font-black uppercase z-20 shadow-md">OCR Control Panel</div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-            {/* OPSI INPUT METHOD (KOLOM KIRI) */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[11px] text-[#00ffff]/60 font-black block uppercase tracking-widest">Metode_Input:</label>
-                <select 
-                  value={inputMode}
-                  onChange={(e) => setInputMode(e.target.value)}
-                  className="w-full bg-black border-2 border-[#00ffff]/20 p-2.5 text-[#00ffff] text-[12px] font-black uppercase outline-none focus:border-[#00ffff] transition-all cursor-pointer"
-                >
-                  <option value="file">📂 Upload Berkas Gambar</option>
-                  <option value="camera">📷 Live Camera (SDK Device)</option>
-                </select>
+          <div className="space-y-4">
+            <div className="space-y-2 text-left">
+              <label className="text-[11px] text-[#00ffff]/60 font-black block uppercase tracking-widest">Metode Input:</label>
+              <select 
+                value={inputMode}
+                onChange={(e) => {
+                   setInputMode(e.target.value);
+                   if (e.target.value === 'file') stopCamera();
+                }}
+                className="w-full bg-black border-2 border-[#00ffff]/20 p-2.5 text-[#00ffff] text-[12px] font-black uppercase outline-none focus:border-[#00ffff] transition-all cursor-pointer"
+              >
+                <option value="camera">📷 Live Camera (Polygon Mode)</option>
+                <option value="file">📂 Unggah Berkas Lokal</option>
+              </select>
+            </div>
+
+            {inputMode === 'camera' ? (
+              <div className="relative aspect-[4/3] bg-black border-2 border-[#00ffff]/10 overflow-hidden group cursor-crosshair rounded-sm">
+                <video ref={videoRef} autoPlay playsInline className="hidden" />
+                <canvas 
+                  ref={canvasRef} 
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  className="w-full h-full object-contain" 
+                />
+                {!isCameraActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/80">
+                    <Camera size={40} className="text-zinc-800" />
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* AREA AKSI INPUT (KOLOM KANAN) */}
-            <div className="space-y-4">
-              <label className="text-[11px] text-[#00ffff]/60 font-black block uppercase tracking-widest">Status_Kontrol_Terminal:</label>
-              
-              {inputMode === 'file' ? (
-                <div className="flex gap-2 h-11 relative">
-                  <button 
-                    onClick={() => fileInputRef.current.click()} 
-                    className={`flex-1 border-2 border-dashed text-[12px] px-4 font-black transition-all flex flex-row items-center justify-center gap-3 group ${hasBuffer ? 'border-[#00ffff] bg-[#00ffff]/10 text-[#00ffff]' : 'border-[#00ffff]/40 bg-[#00ffff]/5 text-zinc-500 hover:text-[#00ffff]'}`}
-                  >
-                    <Folder size={18} />
-                    <span>{hasBuffer ? "Ganti Gambar" : "Pilih File"}</span>
-                  </button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                </div>
-              ) : (
-                <div className="flex flex-col xl:flex-row gap-2">
-                  {/* TOMBOL KONEKSI SDK */}
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => connectSDK('cmd')} className={`px-4 py-2 text-[10px] font-black uppercase border-2 transition-all ${connStatus.cmd ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-[0_0_10px_#10b98144]' : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
-                      {connStatus.cmd ? <Wifi size={12} className="inline mr-2" /> : <WifiOff size={12} className="inline mr-2" />} Connect CMD
-                    </button>
-                    <button onClick={() => connectSDK('mc')} className={`px-4 py-2 text-[10px] font-black uppercase border-2 transition-all ${connStatus.mc ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-[0_0_10px_#10b98144]' : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>
-                      Media Link
-                    </button>
-                  </div>
-
-                  {/* KODE LISENSI */}
-                  <div className="flex-1 flex gap-1 h-9 min-w-0 animate-in slide-in-from-right-1 duration-300">
-                    <div className="bg-black/40 border border-[#00ffff]/20 flex items-center px-2.5 text-[#00ffff]/40 shrink-0">
-                      <Key size={12} />
-                    </div>
-                    <input 
-                      type="text" 
-                      value={license}
-                      onChange={(e) => setLicense(e.target.value)}
-                      placeholder="Kode Lisensi..."
-                      className="flex-1 min-w-0 bg-black border-y border-[#00ffff]/20 px-3 text-[11px] text-white outline-none focus:border-[#00ffff]/60 font-mono"
-                    />
-                    <button 
-                      onClick={handleInitSDK}
-                      disabled={!connStatus.cmd}
-                      className="px-4 bg-white text-black font-black text-[9px] uppercase hover:bg-zinc-200 transition-all disabled:opacity-20 border-y border-r border-[#00ffff]/20 shrink-0"
-                    >
-                      INIT
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <button 
+                  onClick={() => fileInputRef.current.click()} 
+                  className={`py-10 border-2 border-dashed text-[12px] px-4 font-black transition-all flex flex-col items-center justify-center gap-3 group rounded-sm ${hasFileBuffer ? 'border-[#00ffff] bg-[#00ffff]/10 text-[#00ffff]' : 'border-[#00ffff]/40 bg-[#00ffff]/5 text-zinc-500 hover:text-[#00ffff]'}`}
+                >
+                  <Folder size={32} />
+                  <span>{hasFileBuffer ? "Ganti Gambar" : "Klik Untuk Memilih Berkas"}</span>
+                </button>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+              </div>
+            )}
           </div>
 
-          {/* KONTROL KAMERA (START/STOP & CAPTURE) - Memanjang penuh sejajar Metode_Input */}
-          {inputMode === 'camera' && (
-            <div className="mt-4 flex gap-2 h-11 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {inputMode === 'camera' && (
               <button 
-                onClick={toggleCamera}
-                disabled={!connStatus.cmd || !isLicenseActive}
-                className={`flex-1 border-2 text-[11px] font-black uppercase flex items-center justify-center gap-2 transition-all ${isCameraOpen ? 'bg-red-500/20 border-red-500 text-red-500 shadow-[0_0_15px_#ef444433]' : 'bg-[#00ffff]/10 border-[#00ffff] text-[#00ffff] disabled:opacity-20 hover:bg-[#00ffff]/20'}`}
+                onClick={isCameraActive ? stopCamera : startCamera}
+                className={`py-3 border-2 font-black text-[12px] uppercase flex items-center justify-center gap-2 transition-all rounded-sm ${isCameraActive ? 'bg-red-600 border-red-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white shadow-[0_0_15px_#10b98144]'}`}
               >
-                {isCameraOpen ? <Square size={14} /> : <Play size={14} />}
-                {isCameraOpen ? "Stop Camera Preview" : "Start Camera Preview"}
+                {isCameraActive ? <Square size={14} /> : <Play size={14} />}
+                {isCameraActive ? "Hentikan Kamera" : "Aktifkan Kamera"}
               </button>
-              <button 
-                onClick={handleCaptureFromCamera}
-                disabled={!isCameraOpen}
-                className={`px-6 border-2 font-black text-[11px] uppercase transition-all ${isCameraOpen ? 'bg-[#00ffff] text-black border-[#00ffff] hover:brightness-110 shadow-[0_0_15px_#00ffff33]' : 'bg-black border-zinc-800 text-zinc-600'}`}
-              >
-                Capture Frame
-              </button>
-            </div>
-          )}
-
-          {hasBuffer && (
-            <div className="mt-4 flex items-center justify-between bg-[#00ffff]/5 border border-[#00ffff]/20 px-3 py-1.5 rounded-sm">
-              <span className="text-[9px] text-[#00ffff] font-mono truncate max-w-[250px]">SOURCE: {selectedFile?.name || "captured_frame.jpg"}</span>
-              <button onClick={clearBuffer} className="text-red-500 hover:text-red-400 transition-colors"><X size={14} /></button>
-            </div>
-          )}
-          
-          <div className="mt-4 pt-4 border-t border-[#00ffff]/10">
-             <button 
-                disabled={!hasBuffer || isProcessing}
-                onClick={handleExtract} 
-                className={`w-full py-3.5 text-black text-[14px] font-black uppercase tracking-[0.4em] shadow-[0_0_20px_rgba(0,255,255,0.2)] transition-all flex items-center justify-center font-mono gap-3 rounded-sm ${hasBuffer && !isProcessing ? 'bg-[#00ffff] hover:scale-[1.01] active:scale-95' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}`}
-             >
-               {isProcessing ? <><RefreshCw size={16} className="animate-spin" /> Sedang Menganalisa...</> : <><Scan size={16} /> Jalankan Ekstraksi OCR</>}
-             </button>
+            )}
+            <button 
+              onClick={handleExtract}
+              disabled={(inputMode === 'camera' && !isCameraActive) || (inputMode === 'file' && !hasFileBuffer) || isProcessing}
+              className={`py-3 border-2 font-black text-[12px] uppercase flex items-center justify-center gap-2 transition-all rounded-sm ${((inputMode === 'camera' && isCameraActive) || (inputMode === 'file' && hasFileBuffer)) && !isProcessing ? 'bg-[#00ffff] border-[#00ffff] text-black shadow-[0_0_15px_#00ffff44]' : 'bg-zinc-800 border-zinc-700 text-zinc-500 disabled:opacity-50'} ${inputMode === 'file' ? 'col-span-2' : ''}`}
+            >
+              {isProcessing ? <RefreshCw size={14} className="animate-spin" /> : <Scan size={14} />}
+              Jalankan OCR
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Panel Hasil */}
-      <div className="flex-1 flex flex-col min-h-[400px] font-mono">
-        <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 rounded-sm relative flex flex-col gap-4 shadow-xl">
-           <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#00ffff]/20 pb-3 gap-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-yellow-500 animate-ping' : hasBuffer ? 'bg-[#00ffff]' : 'bg-zinc-700'}`} />
-                <span className="text-[16px] pl-1 font-black text-[#00ffff] uppercase tracking-[0.2em]">Recognition_Output_Log</span>
-              </div>
-              
-              <div className="flex items-center bg-black/40 p-1 border border-[#00ffff]/20 rounded-sm">
-                {[
-                  { id: 'text', icon: FileText, label: 'Text' },
-                  { id: 'visual', icon: TableIcon, label: 'Visual' },
-                  { id: 'markdown', icon: BookOpen, label: 'Markdown' }
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setSubTab(item.id)}
-                    className={`flex items-center gap-2 px-4 py-1.5 text-[11px] font-black uppercase transition-all ${subTab === item.id ? 'bg-[#00ffff] text-black shadow-[0_0_10px_#00ffff88]' : 'text-[#00ffff]/40 hover:text-[#00ffff]'}`}
-                  >
-                    <item.icon size={12} /> {item.label}
-                  </button>
-                ))}
-              </div>
+        {/* PANEL HASIL RECOGNITION */}
+        <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm shadow-2xl flex flex-col min-h-[400px]">
+           <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[12px] font-black uppercase z-20 shadow-md">Data Extraction Stream</div>
+           
+           <div className="flex gap-1 mb-4 bg-black/40 p-1 border border-[#00ffff]/10">
+              {['text', 'visual', 'markdown'].map(t => (
+                <button 
+                  key={t}
+                  onClick={() => setSubTab(t)}
+                  className={`flex-1 py-1.5 text-[10px] font-black uppercase transition-all ${subTab === t ? 'bg-[#00ffff] text-black shadow-[inset_0_0_10px_rgba(0,0,0,0.2)]' : 'text-zinc-500 hover:text-[#00ffff]'}`}
+                >
+                  {t}
+                </button>
+              ))}
            </div>
-           <div className="flex-1 bg-black/80 border border-[#00ffff]/10 p-6 flex flex-col justify-start items-center rounded-sm relative overflow-y-auto custom-scrollbar">
+
+           <div className="flex-1 bg-black/60 border border-[#00ffff]/5 p-4 rounded-sm min-h-[300px] shadow-inner">
               {renderResultContent()}
            </div>
         </div>
       </div>
 
+      {/* TERMINAL LOGS (SESUAI REFERENSI PASSPORT SCANNER) */}
+      {/* <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-950 flex flex-col rounded-sm relative overflow-hidden shadow-2xl min-h-[250px] mt-2">
+          <div className="flex items-center justify-between p-4 border-b border-[#00ffff]/20 bg-black/40">
+            <div className="flex items-center gap-3">
+               <TerminalIcon size={18} className="text-[#00ffff] animate-pulse" />
+               <span className="text-[14px] font-black text-[#00ffff] uppercase tracking-widest font-mono">
+                  Log Terminal OCR
+               </span>
+            </div>
+            <div className="flex items-center gap-4">
+               <div className="flex items-center gap-2">
+                  <Activity size={12} className="text-[#00ffff]/40 animate-pulse" />
+                  <span className="text-[9px] text-zinc-600 uppercase font-black tracking-widest italic">Live Status Link_</span>
+               </div>
+               <button 
+                 onClick={() => setLogs([`[SYSTEM] Terminal logs flushed at ${new Date().toLocaleTimeString()}`])} 
+                 className="p-1.5 hover:bg-rose-500/10 text-rose-500/60 hover:text-rose-500 transition-all rounded-sm border border-transparent hover:border-rose-500/30"
+                 title="Clear Logs"
+               >
+                 <Trash2 size={14} />
+               </button>
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 bg-black/60 border border-[#00ffff]/5 rounded-sm overflow-auto custom-scrollbar font-mono shadow-inner p-5 text-left">
+            <pre className="text-emerald-400 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+              {logs.join('\n')}
+              <span className="animate-pulse ml-1">_</span>
+            </pre>
+          </div>
+      </div> */}
+
+      <canvas ref={resultCanvasRef} className="hidden" />
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.2); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
       `}</style>
     </div>
   );
 };
 
-export default OCRScannerModule;
+export default App;
