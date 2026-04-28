@@ -20,7 +20,8 @@ import {
   Printer,
   ShieldCheck,
   Database,
-  Search
+  Search,
+  SquareX
 } from 'lucide-react';
 
 // Import Komponen Modular

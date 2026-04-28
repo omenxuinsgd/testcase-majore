@@ -123,14 +123,14 @@ export default function App() {
           <span className="text-base sm:text-xl font-bold tracking-tighter uppercase text-inherit whitespace-nowrap">M-ONE <span className="text-[#00ffff]">AIO</span></span>
         </div>
         
-        {/* <nav className="flex items-center space-x-3 sm:space-x-6">
+        <nav className="flex items-center space-x-3 sm:space-x-6">
           <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'text-[#00ffff] hover:bg-[#00ffff]/10' : 'text-slate-600 hover:bg-slate-200'}`} title="Ganti Mode">
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <button className={`flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'text-[#00ffff] border-[#00ffff]/30 hover:bg-[#00ffff]/10' : 'text-slate-700 border-slate-300 hover:bg-slate-100'}`}>
             <Settings size={16} /> <span className="text-[10px] sm:text-xs font-black tracking-[0.2em] uppercase hidden sm:inline">Pengaturan</span>
           </button>
-        </nav> */}
+        </nav>
       </header>
 
       {/* Tata Letak Hero & Card - Flex dengan overflow auto */}
@@ -209,14 +209,14 @@ export default function App() {
                   <div className={`mb-2 sm:mb-3 p-1.5 sm:p-2 rounded-sm border transition-colors ${validIdx === i ? 'bg-[#00ffff] text-black border-[#00ffff]' : (isDarkMode ? 'bg-black/40 text-[#00ffff]/60 border-[#00ffff]/20' : 'bg-white/40 text-slate-400 border-slate-200')}`}>
                     <item.Icon size={48} />
                   </div>
-                  <h3 className={`pt-8 text-[10px] sm:text-[11px] md:text-[12px] lg:text-[17px] font-black uppercase tracking-widest leading-none truncate max-w-full ${validIdx === i ? (isDarkMode ? 'text-white' : 'text-slate-900') : 'text-gray-400'}`}>{item.title}</h3>
+                  <h3 className={`text-[10px] sm:text-[11px] md:text-[12px] lg:text-[13px] font-black uppercase tracking-widest leading-none truncate max-w-full ${validIdx === i ? (isDarkMode ? 'text-white' : 'text-slate-900') : 'text-gray-400'}`}>{item.title}</h3>
                   <div className="w-full h-[1px] bg-gradient-to-l from-blue-500/30 to-transparent mb-1" />
                   <motion.div 
                     onClick={(e) => { e.stopPropagation(); setActiveIdx(i); setView('terminal'); }} 
                     animate={{ x: validIdx === i ? 0 : 5, opacity: validIdx === i ? 1 : 0.4, color: validIdx === i ? '#00ffff' : '#4b5563' }} 
                     className="flex items-center space-x-1 text-[7px] sm:text-[8px] font-bold pointer-events-auto mt-1 sm:mt-2"
                   >
-                    {/* <span className="text-[9px] sm:text-[10px] md:text-[11px] uppercase tracking-tighter whitespace-nowrap">Akses Berkas</span> <ChevronRight size={16} /> */}
+                    <span className="text-[9px] sm:text-[10px] md:text-[11px] uppercase tracking-tighter whitespace-nowrap">Akses Berkas</span> <ChevronRight size={16} />
                   </motion.div>
                 </div>
               </motion.div>
@@ -234,7 +234,7 @@ export default function App() {
       {/* Footer - Fixed dengan wrap yang baik */}
       <footer className={`relative z-40 flex flex-col md:flex-row items-center justify-between border-t transition-colors duration-500 px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 space-y-3 md:space-y-0 shrink-0 ${isDarkMode ? 'bg-black/90 border-[#00ffff]/20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]' : 'bg-white border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]'}`}>
         <div className="flex-1 flex flex-wrap justify-center items-center gap-3 sm:gap-4 md:gap-6 px-2 sm:px-4 md:px-6 text-left">
-            {/* {[
+            {[
               { icon: Cpu, label: "Beban_CPU", val: `${stats.cpu}%`, progress: stats.cpu },
               { icon: GpuIcon, label: "Inti_GPU", val: `${stats.gpu}%`, progress: stats.gpu },
               { icon: Database, label: "Penggunaan_RAM", val: stats.ram },
@@ -255,24 +255,24 @@ export default function App() {
                       </div>
                   </div>
               </div>
-            ))} */}
+            ))}
         </div>
         
         <div className="flex items-center space-x-4 sm:space-x-6 shrink-0">
-            {/* <div className="flex space-x-1 sm:space-x-2">
+            <div className="flex space-x-1 sm:space-x-2">
                <button onClick={() => { setActiveIdx(p => (p - 1 + CONTENT_DATA.length) % CONTENT_DATA.length); setProgress(0); }} className={`p-1.5 sm:p-2 border transition-all ${isDarkMode ? 'border-[#00ffff]/30 hover:bg-[#00ffff] hover:text-black' : 'border-slate-300 hover:bg-slate-200'}`}>
                  <svg className="w-3 h-3 sm:w-4 sm:h-4 p-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                </button>
                <button onClick={() => { setActiveIdx(p => (p + 1) % CONTENT_DATA.length); setProgress(0); }} className={`p-1.5 sm:p-2 border transition-all ${isDarkMode ? 'border-[#00ffff]/30 hover:bg-[#00ffff] hover:text-black' : 'border-slate-300 hover:bg-slate-200'}`}>
                  <svg className="w-3 h-3 sm:w-4 sm:h-4 p-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                </button>
-            </div> */}
+            </div>
             <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full border-2 flex items-center justify-center relative ${isDarkMode ? 'border-[#00ffff]/20' : 'border-slate-200'}`}>
                <svg className="w-full h-full rotate-[-90deg]">
                  <circle cx="50%" cy="50%" r="42%" fill="none" stroke="currentColor" strokeWidth="2" className={isDarkMode ? "text-gray-800" : "text-slate-200"} />
                  <circle cx="50%" cy="50%" r="42%" fill="none" stroke="currentColor" strokeWidth="3" className="text-[#00ffff]" strokeDasharray={132} strokeDashoffset={132 - (132 * progress / 100)} />
                </svg>
-               <span className={`absolute text-[9px] sm:text-[10px] md:text-[24px] font-black ${isDarkMode ? 'text-white' : 'text-slate-600'}`}>{validIdx + 1}</span>
+               <span className={`absolute text-[9px] sm:text-[10px] md:text-[11px] font-black ${isDarkMode ? 'text-white' : 'text-slate-600'}`}>{validIdx + 1}</span>
             </div>
         </div>
       </footer>

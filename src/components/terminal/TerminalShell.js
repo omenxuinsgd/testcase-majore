@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Terminal, Power, Globe, User, Wifi } from 'lucide-react';
+import { Terminal, SquareX, Globe, User, Wifi } from 'lucide-react';
 
 /**
  * TerminalShell
@@ -57,17 +57,20 @@ const TerminalShell = ({
       style={{ background: isDarkMode ? 'rgba(4, 6, 10, 0.98)' : 'rgba(235, 245, 255, 0.98)', imageRendering: 'pixelated' }}
     >
       {/* HEADER */}
-      <div className={`flex items-center justify-between px-6 py-3 border-b-2 shadow-lg ${isDarkMode ? 'bg-[#1a1a2e] border-[#00ffff]/30' : 'bg-zinc-300 border-black/10'}`}>
-        <div className="flex space-x-3 w-48">
+      <div className={`flex items-center justify-between px-3 py-1 border-b-2 shadow-lg ${isDarkMode ? 'bg-[#1a1a2e] border-[#00ffff]/30' : 'bg-zinc-300 border-black/10'}`}>
+        {/* <div className="flex space-x-3 w-48">
           <div onClick={onClose} className="w-4 h-4 rounded-full bg-[#ff5f56] cursor-pointer hover:scale-110 shadow-inner" />
           <div className="w-4 h-4 rounded-full bg-[#ffbd2e]" />
           <div className="w-4 h-4 rounded-full bg-[#27c93f]" />
-        </div>
-        <div className="text-[11px] tracking-[0.4em] font-black text-[#00ffff] uppercase drop-shadow-[0_0_8px_rgba(0,255,255,0.6)]">
-          {fullTitle} // V.2.8.5
-        </div>
+        </div> */}
+        {/* <div className="text-[11px] tracking-[0.4em] font-black text-[#00ffff] uppercase drop-shadow-[0_0_8px_rgba(0,255,255,0.6)]"> */}
+          {/* {fullTitle} // V.2.8.5 */}
+           <h2 className="text-4xl tracking-[0.05em] font-arcade leading-none uppercase banner-title truncate">
+              {`> ${shortTitle}`}
+            </h2>
+        {/* </div> */}
         <div className="w-48 flex justify-end">
-           <Power size={18} className="text-red-500 animate-pulse cursor-pointer" onClick={onClose} />
+           <SquareX size={32} className="text-red-500 animate-pulse cursor-pointer" onClick={onClose} />
         </div>
       </div>
 
@@ -76,12 +79,12 @@ const TerminalShell = ({
         
         <div className="flex-1 flex flex-col gap-6 overflow-hidden min-w-0">
           {/* BANNER JUDUL (ARCADE CLASSIC FONT) */}
-          <div className="relative py-2 px-10 mt-0.5 border-2 border-t-6 border-[#00ffff]/20 bg-gradient-to-r from-[#00ffff]/5 to-transparent rounded-sm overflow-hidden shrink-0">
+          {/* <div className="relative py-2 px-10 mt-0.5 border-2 border-t-6 border-[#00ffff]/20 bg-gradient-to-r from-[#00ffff]/5 to-transparent rounded-sm overflow-hidden shrink-0">
             <h2 className="text-4xl tracking-[0.05em] font-arcade leading-none uppercase banner-title truncate">
               {`> ${shortTitle}`}
             </h2>
             <Terminal size={120} className="absolute right-[-20px] top-[-20px] text-[#00ffff] opacity-5 -rotate-12" />
-          </div>
+          </div> */}
 
           <div className="flex-1 flex flex-col relative overflow-hidden">
             <div className="flex items-end h-11 w-fit relative z-30 overflow-visibl">

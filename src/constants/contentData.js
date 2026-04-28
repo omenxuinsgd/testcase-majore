@@ -29,19 +29,19 @@ export const CONTENT_DATA = [
     // Icon: Shield,
     Icon: Fingerprint, 
     status: "Sistem Sidik Jari",
-    image: "https://4kwallpapers.com/images/walls/thumbs_3t/9792.jpg" 
+    image: "https://i.pinimg.com/originals/49/8e/01/498e01faaf88bee2ca08a0f2acf8c7e1.gif" 
   },
   { 
     id: 1, 
-    short: "DOKUMEN_SCANNER A4", 
-    title: "Document Scanner A4", 
+    short: "DOKUMEN_SCANNER", 
+    title: "Document Scanner", 
     subtitle: "LAYANAN PEMINDAIAN DOKUMEN A4", 
     description: "Transformasi dokumen fisik ke format digital secara instan. Dilengkapi teknologi OCR mutakhir untuk ekstraksi teks otomatis serta kemudahan untuk pembacaan Barcode/QRCode.", 
     bgType: 'grid', 
     tag: "Automated Scanning", 
     Icon: Search, 
     status: "Sistem Pemindai Dokumen A4",
-    image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=800" 
+    image: "https://cdn.theatlantic.com/thumbor/0szuc7ZyNPJh-NW-T6mFGi5CFUo=/0x0:1000x562/960x540/media/img/mt/2024/02/generative_ai/original.gif" 
   },
   { 
     id: 2, 
@@ -53,7 +53,7 @@ export const CONTENT_DATA = [
     tag: "Security Audit", 
     status: "Sistem Pemindai Dokumen Passport",
     Icon: Newspaper, 
-    image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=800" 
+    image: "https://img1.picmix.com/output/stamp/normal/1/6/2/6/1496261_1151a.gif" 
   },
   { 
     id: 3, 
@@ -65,7 +65,7 @@ export const CONTENT_DATA = [
     tag: "Human Defense", 
     Icon: Barcode, 
     status: "Sistem Pemindai Barcode",
-    image: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&q=80&w=800" 
+    image: "https://images.squarespace-cdn.com/content/v1/6203d38de5cb48175d574ea6/b3bfa771-4df1-4aa1-bb08-f43621b8c638/NationalBarcodeDay-BarcodesScan.gif" 
   },
   { 
     id: 4, 
@@ -77,7 +77,7 @@ export const CONTENT_DATA = [
     tag: "Evidence Recovery", 
     Icon: ClipboardType, 
     status: "Sistem Pengenalan Karakter Optik",
-    image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800" 
+    image: "https://pdfocr.orpalis.com/img/content/Visual_header_home.gif" 
   },
   { 
     id: 5, 
@@ -89,7 +89,7 @@ export const CONTENT_DATA = [
     tag: "Threat Intel", 
     Icon: Printer, 
     status: "Sistem Pencetakan Thermal",
-    image: "https://i.pinimg.com/originals/a4/b7/e6/a4b7e69536c034f063ac40635e9c62a0.gif" 
+    image: "https://www.kunalespot.com/wp-content/uploads/2024/05/animat-printer-color.gif" 
   },
   { 
     id: 6, 
@@ -101,7 +101,7 @@ export const CONTENT_DATA = [
     tag: "Rapid Response", 
     Icon: Signature, 
     status: "Sistem Tanda Tangan Digital",
-    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=800" 
+    image: "https://cdn.dribbble.com/userupload/6433280/file/original-c03ccf0d80b4f6295f6d275508b4d4db.gif" 
   },
   { 
     id: 7, 
@@ -113,7 +113,7 @@ export const CONTENT_DATA = [
     tag: "Infrastructure", 
     Icon: Hand, 
     status: "Sistem Biometrik Palm Vein",
-    image: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&q=80&w=800" 
+    image: "https://assets.rebelmouse.io/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHBpcmVzX2F0IjoxNzc1OTgwMzQ1LCJpbWFnZSI6Imh0dHBzOi8vbWVkaWEucmJsLm1zL2ltYWdlP3U9JTJGbWVkaWElMkYxMHNSRlA2VzUyaGhXVSUyRmdpcGh5LmdpZiZobz1odHRwcyUzQSUyRiUyRm1lZGlhLmdpcGh5LmNvbSZzPTk3NCZoPTQwZTRiODAwZDVjYmYyNmNhODU2MzE4OWE1ZTg2YTM4ZTg1NDUwNjY2MmI4ZmQzNDg3MzRhYzE0MDEzYWRhYmImc2l6ZT05ODB4JmM9MTY0MDgwNjE3NSJ9.vlcTj42LCgIQXDONpkXx2Ry5VBWUIBQvCDUf_1Z-smE/img.jpg" 
   },
   { 
     id: 8, 
@@ -125,6 +125,6 @@ export const CONTENT_DATA = [
     tag: "Perimeter Sec", 
     Icon: Nfc, 
     status: "Sistem Pengenalan Wajah",
-    image: "https://www.tnitech.co/_next/image?url=%2Fimages%2Fhome%2Ffr.gif&w=3840&q=75" 
+    image: "https://i.pinimg.com/originals/7c/d5/3d/7cd53d36d121d839da9600ca055b01db.gif" 
   }
 ];
