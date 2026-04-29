@@ -218,11 +218,13 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
               transition={{ repeat: Infinity, duration: 2 }}
               className={`w-20 h-20 flex items-center justify-center rounded-sm mb-6 relative ${status === 'success' ? 'bg-emerald-400 shadow-emerald-500/50' : status === 'error' ? 'bg-red-500 shadow-red-500/50' : 'bg-[#00ffff] shadow-[#00ffff]/50'} shadow-[0_0_30px_rgba(0,0,0,0.2)]`}
             >
-              <StatusIcon />
+              {/* <StatusIcon /> */}
+              <img src="https://raw.githubusercontent.com/omenxuinsgd/testcase-majore/refs/heads/main/MIT_Black.png" className="w-full h-full object-contain pl-2 p-1 filter brightness-110 contrast-125" alt="Finger" />
               <div className="absolute inset-0 border-2 border-current rounded-sm animate-ping opacity-20" />
             </motion.div>
             
             <h1 className="text-3xl font-black uppercase tracking-[0.3em] mb-2 italic text-inherit">
+              
               M-ONE <span className={isDarkMode ? 'text-[#00ffff]' : 'text-blue-600'}>AIO</span>
             </h1>
             <div className="flex items-center gap-2 px-3 py-1 bg-[#00ffff]/10 border border-[#00ffff]/20 rounded-full">

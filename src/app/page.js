@@ -118,9 +118,11 @@ export default function App() {
       <header className={`relative z-30 flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 md:py-6 backdrop-blur-md border-b transition-colors duration-500 shrink-0 ${isDarkMode ? 'bg-black/40 border-[#00ffff]/20' : 'bg-white/40 border-slate-200'}`}>
         <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setView('home')}>
           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00ffff] flex items-center justify-center rounded-sm shadow-[0_0_15px_rgba(0,255,255,0.3)]">
-            <Shield className="text-black" size={20} />
+            {/* <Shield className="text-black" size={20} /> */}
+            <img src="https://raw.githubusercontent.com/omenxuinsgd/testcase-majore/refs/heads/main/MIT_Black.png" className="w-full h-full object-contain pl-1.5 p-1 filter brightness-110 contrast-125" alt="Finger" />
           </div>
-          <span className="text-base sm:text-xl font-bold tracking-tighter uppercase text-inherit whitespace-nowrap">M-ONE <span className="text-[#00ffff]">AIO</span></span>
+          <span className="text-base sm:text-3xl font-bold tracking-tighter uppercase text-inherit whitespace-nowrap">MAJORE M-ONE AIO</span> 
+          {/* <span className="text-[#00ffff]">M-ONE AIO</span> */}
         </div>
         
         {/* <nav className="flex items-center space-x-3 sm:space-x-6">
