@@ -279,44 +279,8 @@ const TerminalView = (props) => {
       </div>
 
       {/* TAMPILAN KHUSUS PALM VEIN DI SIDEBAR */}
-      {isPalmVein && (
-        <div className="w-full flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2 pb-6 shrink-0">
-           <div className="w-full border-2 border-[#00ffff]/20 bg-[#082e2e]/20 p-4 rounded-sm flex flex-col gap-3 shadow-xl">
-              <div className="flex items-center text-[#00ffff] font-black uppercase text-[10px] border-b border-[#00ffff]/10 pb-2">Biometric_Vena_Status</div>
-              <div className="grid grid-cols-2 gap-2">
-                 <div className="bg-black/40 p-2 border border-[#00ffff]/10">
-                    <div className="text-[7px] text-zinc-500 uppercase font-bold tracking-widest">Dual_Sensor</div>
-                    <div className="text-[9px] text-emerald-400 font-black uppercase tracking-tighter">Online</div>
-                 </div>
-                 <div className="bg-black/40 p-2 border border-[#00ffff]/10">
-                    <div className="text-[7px] text-zinc-500 uppercase font-bold tracking-widest">Vault_Sync</div>
-                    <div className="text-[9px] text-[#00ffff] font-black uppercase tracking-tighter">Ready</div>
-                 </div>
-              </div>
-           </div>
 
-           <div className="w-full border-2 border-[#00ffff]/20 bg-black/40 p-4 rounded-sm flex flex-col gap-4 shadow-xl">
-              <div className="text-[#00ffff] font-black uppercase text-[10px] tracking-widest italic text-left flex flex-col gap-1 border-b border-[#00ffff]/10 pb-3">
-                 <span>Biometric_Vena_Scanner</span>
-                 <span className="text-[7px] text-zinc-500 not-italic font-bold uppercase tracking-widest">Protocol_Dual_Sensor: Aktif</span>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => sendPalmCommand('capture-start')} disabled={isPalmScanning} className={`flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase transition-all rounded-sm border-2 ${isPalmScanning ? 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed' : 'bg-[#00ffff]/10 border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black shadow-[0_0_15px_rgba(0,255,255,0.1)]'}`}>
-                    {isPalmScanning ? <RefreshCcw size={12} className="animate-spin" /> : <Play size={12} fill="currentColor" />} Capture Start
-                  </button>
-                  <button onClick={() => sendPalmCommand('capture-finish')} className="flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase transition-all rounded-sm border-2 bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500 hover:text-white active:scale-95"><Square size={12} fill="currentColor" /> Capture Finish</button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => sendPalmCommand('enrollment')} className="flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase transition-all rounded-sm border-2 bg-emerald-500/10 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white active:scale-95"><UserPlus size={12} /> Enrollment</button>
-                  <button onClick={() => sendPalmCommand('match')} className="flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase transition-all rounded-sm border-2 bg-purple-500/10 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white active:scale-95"><CheckCircle size={12} /> Match</button>
-                </div>
-              </div>
-           </div>
-        </div>
-      )}
-
+      
       {/* SYSTEM CONSOLE LOG CONTAINER */}
       {/* <div className="w-full border-2 border-[#00ffff]/20 bg-zinc-950/60 rounded-sm flex flex-col shadow-2xl shrink-0 h-44 overflow-hidden mt-auto">
           <div className="flex items-center justify-between px-4 py-2 border-b border-[#00ffff]/10 bg-black/40">

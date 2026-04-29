@@ -12,16 +12,15 @@ import {
   Database,
   Trash2,
   FileText,
-  Loader2
+  Loader2,
+  Search,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 /**
- * SignPadModule (API INTEGRATED & ERROR OPTIMIZED)
- * Logika: 
- * 1. Area visual mini TETAP GIF selamanya.
- * 2. Klik 'Simpan Data' -> API Registrasi Wajah -> Mengaktifkan Sidebar Kiri.
- * 3. Klik 'SAVE' di Sidebar -> API Enroll Signature -> Masuk Tabel Otomatis.
- * Perbaikan: Mengganti placeholder eksternal dengan SVG Data URI untuk mencegah ERR_NAME_NOT_RESOLVED.
+ * SignPadModule (API INTEGRATED)
+ * FIX: Sinkronisasi data tabel dengan SelectBox dan pembersihan state yang teliti.
  */
 const SignPadModule = ({ data }) => {
   const [logs, setLogs] = useState([`[SYSTEM] Registration Hub v1.4.5 Online.`]);
@@ -29,83 +28,109 @@ const SignPadModule = ({ data }) => {
   const [isApiLoading, setIsApiLoading] = useState(false);
   const [regData, setRegData] = useState({ userId: "", fullName: "", address: "" });
   
-  // Placeholder Signature (SVG Base64) agar tidak bergantung pada koneksi internet
+  // State untuk data personel
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+  // Placeholder Signature (SVG Base64)
   const placeholderSign = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIzMCI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjMwIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiM2NjYiIGZvbnQtc2l6ZT0iOCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZHk9Ii4zZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5PX0lNRzwvdGV4dD48L3N2Zz4=";
 
-  const [userList, setUserList] = useState([
-    {
-      id: "91931",
-      name: "nuyyy",
-      address: "sadasdasd",
-      image: "https://upload.wikimedia.org/wikipedia/commons/3/3a/Jon_Kirsch_Signature.png",
-      date: "2026-03-05 12:19:13"
-    }
-  ]);
+  const [userList, setUserList] = useState([]);
 
   const API_BASE = "http://localhost:5160"; 
 
+  // --- 1. LOAD DAFTAR PERSONEL (INITIAL) ---
   useEffect(() => {
-    console.log("[DEBUG] SignPadModule Initialized. Waiting for signature capture event.");
+    const fetchUsers = async () => {
+      try {
+        setIsLoadingUsers(true);
+        const response = await fetch(`${API_BASE}/api/face/data_personal`);
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableUsers(data.sort((a, b) => a.UserID - b.UserID));
+          addLog("Database personel disinkronkan.", "success");
+        }
+      } catch (error) {
+        addLog("Gagal mengambil daftar personel.", "error");
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+    fetchUsers();
+  }, []);
 
+  // --- 2. SINKRONISASI TABEL SAAT USER DIPILIH ---
+  useEffect(() => {
+    if (regData.userId) {
+      loadBiometricData(regData.userId);
+    } else {
+      setUserList([]);
+    }
+  }, [regData.userId]);
+
+  const loadBiometricData = async (userId) => {
+    if (!userId) return;
+    setIsApiLoading(true);
+    // Bersihkan data lama segera agar UI tidak "stuck"
+    setUserList([]); 
+    
+    try {
+      // Menggunakan endpoint biometric sign (asumsi pola yang sama dengan palm/face)
+      const res = await fetch(`${API_BASE}/api/palm/signbiometric/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const formatted = data.map(item => ({
+            id: item.UserID || item.userId,
+            name: item.Name || item.name,
+            address: item.Address || item.address || "-",
+            image: `data:image/png;base64,${item.Image || item.image}`,
+            date: item.Timestamp || item.timestamp || new Date().toLocaleString()
+          }));
+          setUserList(formatted);
+          addLog(`Sinkronisasi: ${formatted.length} rekaman ditemukan.`, "success");
+        }
+      }
+    } catch (err) {
+      console.error("Load failed:", err);
+    } finally {
+      setIsApiLoading(false);
+    }
+  };
+
+  // --- 3. EVENT LISTENER UNTUK CAPTURE DARI SIDEBAR ---
+  useEffect(() => {
     const handleCaptureComplete = async (event) => {
         const signatureBase64 = event.detail;
-        
-        if (!signatureBase64) {
-            console.error("[DEBUG] Error: No signature data found in event.");
-            addLog("Gagal menangkap tanda tangan: Data kosong.", "error");
-            return;
-        }
+        if (!signatureBase64 || !regData.userId) return;
 
         setIsApiLoading(true);
         addLog("Memproses pendaftaran tanda tangan...", "info");
 
         try {
-            // 1. Konversi Base64 ke Blob
             const resBlob = await fetch(signatureBase64);
             const blob = await resBlob.blob();
 
-            if (!blob) throw new Error("Failed to create blob from signature");
-
-            // 2. Siapkan FormData
             const formData = new FormData();
             formData.append("image", blob, "signature.png");
             formData.append("userId", regData.userId);
 
-            // 3. Eksekusi Request POST
             const res = await fetch(`${API_BASE}/api/palm/enroll_sign`, {
                 method: "POST",
                 body: formData
             });
 
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error("[API ERROR]", errorText);
-                addLog(`Enroll failed: ${res.status}`, "error");
-                return;
+            if (res.ok) {
+                addLog(`Tanda tangan ${regData.fullName} berhasil disimpan!`, "success");
+                // Refresh data dari server alih-alih reset manual yang menghapus semua
+                await loadBiometricData(regData.userId);
+                setIsDataSaved(false);
+                window.dispatchEvent(new CustomEvent('signpad:data-reset')); 
+            } else {
+                addLog(`Gagal menyimpan: ${res.status}`, "error");
             }
-
-            const json = await res.json();
-            console.log("[API SUCCESS]", json);
-            addLog("Sinkronisasi biometrik sukses!", "success");
-
-            // 4. Update Tabel Lokal (Langsung tampilkan)
-            const newUserRecord = {
-                id: regData.userId,
-                name: regData.fullName,
-                address: regData.address || "-",
-                image: signatureBase64, 
-                date: new Date().toISOString().replace('T', ' ').split('.')[0]
-            };
-
-            setUserList(prev => [newUserRecord, ...prev]);
-            addLog(`User [${regData.fullName}] berhasil didaftarkan.`, "success");
-
-            // 5. Reset Form
-            handleResetAll();
-
         } catch (err) {
-            console.error("[SERVER ERROR]", err);
-            addLog(`Server error: ${err.message}`, "error");
+            addLog(`Error: ${err.message}`, "error");
         } finally {
             setIsApiLoading(false);
         }
@@ -115,7 +140,6 @@ const SignPadModule = ({ data }) => {
     return () => window.removeEventListener('signpad:capture-complete', handleCaptureComplete);
   }, [regData]); 
 
-  // --- SINKRONISASI LOG KE SIDEBAR ---
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
   }, [logs]);
@@ -127,98 +151,119 @@ const SignPadModule = ({ data }) => {
     setLogs(p => [`${prefix} ${msg} (${timestamp})`, ...p].slice(0, 100));
   };
 
+  const handleUserSelection = (e) => {
+    const selectedId = e.target.value;
+    const user = availableUsers.find(u => u.UserID.toString() === selectedId);
+    
+    // Reset status pendaftaran saat ganti user
+    setIsDataSaved(false);
+    window.dispatchEvent(new CustomEvent('signpad:data-reset'));
+
+    if (user) {
+      setRegData({
+        userId: user.UserID.toString(),
+        fullName: user.Name,
+        address: user.Address || ""
+      });
+      addLog(`Personel aktif: ${user.Name}`, "info");
+    } else {
+      setRegData({ userId: "", fullName: "", address: "" });
+      setUserList([]);
+    }
+  };
+
   const handleRegister = async () => {
     if (!regData.userId || !regData.fullName) {
-      addLog("Gagal: User ID dan Nama wajib diisi!", "error");
+      addLog("Gagal: Pilih personel terlebih dahulu!", "error");
       return;
     }
     setIsDataSaved(true);
     window.dispatchEvent(new CustomEvent('signpad:data-ready'));
-    addLog("Data disimpan. Silakan tanda tangan di sidebar.", "success");
+    addLog("Data dikunci. Sila tandatangan di bar sisi.", "success");
   };
 
   const handleResetAll = () => {
     setRegData({ userId: "", fullName: "", address: "" });
     setIsDataSaved(false);
+    setUserList([]);
     window.dispatchEvent(new CustomEvent('signpad:data-reset')); 
+    addLog("Sesi direset.", "info");
   };
 
-  const handleDeleteUser = (id) => {
-    setUserList(prev => prev.filter(u => u.id !== id));
-    addLog(`ID [${id}] dihapus dari vault.`, "info");
+  const handleDeleteUser = async (id) => {
+    if (!confirm("Padam data tandatangan ini?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/palm/del_sign/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        addLog(`Rekaman [${id}] dipadam.`, "success");
+        loadBiometricData(regData.userId);
+      }
+    } catch (err) {
+      addLog("Gagal memadam data.", "error");
+    }
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar text-left font-mono">
       <div className="flex flex-col lg:flex-row gap-8 items-start shrink-0">
-        {/* <div className="w-full lg:w-[190px] flex flex-col items-center gap-2 shrink-0">
-          <div className="relative w-full aspect-[1.25/1] border-2 border-[#00ffff]/30 bg-zinc-950 overflow-hidden shadow-2xl rounded-sm group">
-             <img 
-                src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExb2N3ZXg5NzV5ZW9hZHJpY2xxMjRid2Q3dGt3aTBuNWwyMWI0cTFwbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/gUNA7QH4AeLde/giphy.gif" 
-                alt="Standby GIF" 
-                className={`w-full h-full object-cover transition-all duration-700 ${isDataSaved ? 'opacity-100 grayscale-0' : 'opacity-60 grayscale brightness-125'}`} 
-             />
-             <div className="absolute top-2 right-2 z-20">
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 bg-black/80 border border-emerald-500/50 text-[7px] text-emerald-400 font-black uppercase tracking-widest`}>
-                <Wifi size={8} /> ONLINE
-              </div>
+        <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm flex flex-col shadow-2xl min-h-[160px]">
+          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[16px] font-black uppercase z-[50]">Registrasi Data User</div>
+          
+          <div className="flex flex-col gap-4 py-4">
+            <div className="space-y-1">
+              <label className="text-[12px] text-[#00ffff]/60 uppercase font-black tracking-widest flex items-center gap-2 ml-1">
+                <IdCard size={14} /> Pilih Personel Target
+              </label>
+              
+              <select
+                value={regData.userId}
+                onChange={handleUserSelection}
+                disabled={isDataSaved || isApiLoading || isLoadingUsers}
+                className="w-full bg-black border-2 border-[#00ffff]/10 focus:border-[#00ffff] p-3 text-[#00ffff] text-[14px] outline-none rounded-sm transition-all cursor-pointer font-black"
+              >
+                <option value="">-- PILIH PERSONEL ({availableUsers.length} TERDAFTAR) --</option>
+                {availableUsers.map((user) => (
+                  <option key={user.UserID} value={user.UserID}>
+                    ID: {user.UserID} | {user.Name}
+                  </option>
+                ))}
+              </select>
             </div>
-            {isApiLoading && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-30">
-                    <Loader2 size={24} className="text-[#00ffff] animate-spin mb-2" />
-                    <span className="text-[8px] text-[#00ffff] font-black uppercase tracking-widest">Processing...</span>
+
+            {regData.userId && (
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="p-3 bg-[#00ffff]/5 border border-[#00ffff]/10 rounded-sm">
+                  <span className="text-[8px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Nama Lengkap</span>
+                  <span className="text-[12px] text-white font-bold uppercase truncate block">{regData.fullName}</span>
                 </div>
+                <div className="p-3 bg-[#00ffff]/5 border border-[#00ffff]/10 rounded-sm">
+                  <span className="text-[8px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Alamat</span>
+                  <span className="text-[12px] text-zinc-400 italic truncate block">{regData.address || "N/A"}</span>
+                </div>
+              </div>
             )}
           </div>
-          <span className="text-[8px] text-[#00ffff]/40 font-bold uppercase tracking-[0.3em]">Sign_Buffer_v1</span>
-        </div> */}
 
-        <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm flex font-mono flex-col shadow-2xl min-h-[160px]">
-          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[16px] font-black uppercase z-[50]">Registrasi Data User</div>
-          <div className="grid grid-cols-3 gap-x-4 text-left font-mono py-4">
-            <div className="space-y-1">
-              <label className="text-[12px] text-[#00ffff]/60 uppercase font-black tracking-widest flex items-center gap-1"><IdCard size={14} /> User_ID / NIK</label>
-              <input disabled={isDataSaved || isApiLoading} type="text" value={regData.userId} onChange={(e) => setRegData({...regData, userId: e.target.value})} placeholder="ID Number..." className={`w-full bg-black border border-[#00ffff]/20 p-2 text-[14px] text-[#00ffff] outline-none focus:border-[#00ffff]/60 transition-all ${isDataSaved ? 'opacity-40' : ''}`} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[12px] text-[#00ffff]/60 uppercase font-black tracking-widest flex items-center gap-1"><User size={14} /> Full_Name</label>
-              <input disabled={isDataSaved || isApiLoading} type="text" value={regData.fullName} onChange={(e) => setRegData({...regData, fullName: e.target.value})} placeholder="Name..." className={`w-full bg-black border border-[#00ffff]/20 p-2 text-[14px] text-white outline-none focus:border-[#00ffff]/60 uppercase transition-all ${isDataSaved ? 'opacity-40' : ''}`} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[12px] text-[#00ffff]/60 uppercase font-black tracking-widest flex items-center gap-1"><MapPin size={14} /> Address</label>
-              <input disabled={isDataSaved || isApiLoading} type="text" value={regData.address} onChange={(e) => setRegData({...regData, address: e.target.value})} placeholder="Street..." className={`w-full bg-black border border-[#00ffff]/20 p-2 text-[14px] text-zinc-400 outline-none focus:border-[#00ffff]/60 transition-all ${isDataSaved ? 'opacity-40' : ''}`} />
-            </div>
-          </div>
           <div className="mt-auto pt-3 flex gap-4">
-             <button onClick={handleRegister} disabled={isDataSaved || isApiLoading} className={`flex-1 py-1.5 font-black text-[16px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,255,255,0.2)] ${!isDataSaved && !isApiLoading ? 'bg-[#00ffff] text-black hover:brightness-110 active:scale-95' : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'}`}>
-                {isApiLoading ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />} 
+             <button 
+                onClick={handleRegister} 
+                disabled={!regData.userId || isDataSaved || isApiLoading} 
+                className={`flex-1 py-2 font-black text-[16px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,255,255,0.2)] ${regData.userId && !isDataSaved && !isApiLoading ? 'bg-[#00ffff] text-black hover:brightness-110 active:scale-95' : 'bg-zinc-800 text-zinc-600 border border-zinc-700 cursor-not-allowed'}`}
+             >
+                {isApiLoading ? <Loader2 size={14} className="animate-spin" /> : isDataSaved ? <Lock size={14} /> : <Send size={14} />} 
                 {isDataSaved ? "WAITING_SIGNATURE" : "Simpan Data"}
              </button>
-             <button disabled={isApiLoading} onClick={handleResetAll} className="px-6 py-1.5 border border-red-500/40 text-red-500 text-[16px] font-black uppercase hover:bg-red-500/10 transition-all active:scale-95">Reset</button>
+             <button disabled={isApiLoading} onClick={handleResetAll} className="px-6 py-2 border border-red-500/40 text-red-500 text-[16px] font-black uppercase hover:bg-red-500/10 transition-all active:scale-95">Reset</button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-[300px] mb-2 overflow-hidden font-mono">
-        {/* <div className="md:flex-[1] border-2 border-[#00ffff]/20 bg-black/90 p-4 flex flex-col rounded-sm text-left font-mono text-zinc-400 shadow-inner overflow-hidden">
-            <div className="flex justify-between items-center border-b border-[#00ffff]/10 pb-1.5 mb-2">
-              <div className="flex items-center gap-2 text-[#00ffff] uppercase font-black text-[16px]"><Activity size={12} className="animate-pulse" /><span>Biometric_Console</span></div>
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 text-[12px]">
-              {logs.map((l, i) => (
-                  <div key={i} className={`flex gap-3 leading-tight ${l.includes('[SUCCESS]') ? 'text-emerald-400' : l.includes('[ERROR]') ? 'text-red-400' : ''}`}>
-                    <span className="opacity-20 shrink-0 font-bold">{(logs.length - i).toString().padStart(2, '0')}</span>
-                    <span className="break-all">{l}</span>
-                  </div>
-              ))}
-            </div>
-        </div> */}
-
         <div className="md:flex-[2.5] border-2 border-[#00ffff]/40 bg-zinc-950 flex flex-col rounded-sm relative overflow-hidden shadow-2xl">
             <div className="flex items-center gap-3 text-[#00ffff] py-2 px-4 uppercase font-black border-b border-[#00ffff]/10 bg-zinc-900/50 shrink-0">
                 <Database size={12} />
                 <span>Personal Biometric Data</span>
-                <div className="ml-auto opacity-40"><FileText size={14} /></div>
+                {isApiLoading && <Loader2 size={12} className="animate-spin ml-2" />}
             </div>
             
             <div className="flex-1 overflow-x-auto custom-scrollbar p-2 bg-black/40">
@@ -247,7 +292,6 @@ const SignPadModule = ({ data }) => {
                                               alt="Signature" 
                                               className="h-10 w-auto min-w-[60px] object-contain bg-white/80 grayscale group-hover:grayscale-0 transition-all" 
                                               onError={(e) => { 
-                                                // Mencegah loop jika placeholder itu sendiri gagal (meskipun ini local data URI)
                                                 if (e.target.src !== placeholderSign) {
                                                   e.target.src = placeholderSign; 
                                                 }
@@ -258,7 +302,7 @@ const SignPadModule = ({ data }) => {
                                 </td>
                                 <td className="py-3 px-3 text-zinc-500 whitespace-nowrap">{user.date}</td>
                                 <td className="py-3 px-3 text-right">
-                                    <button onClick={() => handleDeleteUser(user.id)} className="text-red-500 hover:text-red-400 font-black flex items-center justify-end gap-1 ml-auto">
+                                    <button onClick={() => handleDeleteUser(user.id)} className="text-rose-500 hover:text-red-400 font-black flex items-center justify-end gap-1 ml-auto">
                                         <Trash2 size={10} /> Delete
                                     </button>
                                 </td>
@@ -266,8 +310,11 @@ const SignPadModule = ({ data }) => {
                         ))}
                     </tbody>
                  </table>
-                 {userList.length === 0 && (
+                 {!isApiLoading && userList.length === 0 && (
                    <div className="py-12 text-center text-zinc-700 uppercase tracking-[0.5em] italic opacity-40">--- No Records Found ---</div>
+                 )}
+                 {isApiLoading && userList.length === 0 && (
+                   <div className="py-12 text-center text-[#00ffff]/40 uppercase tracking-[0.2em] animate-pulse">Menarik Data Brankas...</div>
                  )}
             </div>
 

@@ -31,7 +31,8 @@ import {
 /**
  * FingerprintModule
  * Modul pendaftaran dan verifikasi sidik jari lengkap.
- * FIX: Menambahkan state isProcessing yang hilang untuk mengatasi ReferenceError.
+ * FIX: Perbaikan tampilan visual buffer agar gambar tidak terpotong.
+ * FIX: Pemetaan indeks jari dinamis sesuai mode (Left/Right/Thumbs).
  */
 const FingerprintModule = ({ data, activeTab }) => {
   // State Data User
@@ -42,16 +43,11 @@ const FingerprintModule = ({ data, activeTab }) => {
   
   // State Status Perangkat & UI
   const [isLoading, setIsLoading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); // FIX: Definisi state yang hilang
   const [isCapturing, setIsCapturing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   
-  // State Personel (Sync dengan pola Palm Vein)
-  const [availableUsers, setAvailableUsers] = useState([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-
   // State Buffer & Hasil
   const [fingerCaptures, setFingerCaptures] = useState(new Array(10).fill(null));
   const [matchResult, setMatchResult] = useState(null);
@@ -117,26 +113,6 @@ const FingerprintModule = ({ data, activeTab }) => {
     setToast({ show: true, message: cleanMsg, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
   };
-
-  // --- LOAD DAFTAR PERSONEL (Sama seperti Palm Vein) ---
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoadingUsers(true);
-        const response = await fetch(`${API_REG_URL}/api/face/data_personal`);
-        if (response.ok) {
-          const data = await response.json();
-          setAvailableUsers(data.sort((a, b) => a.UserID - b.UserID));
-          addLog("Database personel berhasil disinkronkan.", "success");
-        }
-      } catch (error) {
-        addLog("Gagal mengambil daftar personel dari server.", "error");
-      } finally {
-        setIsLoadingUsers(false);
-      }
-    };
-    fetchUsers();
-  }, []);
 
   const loadFingerprintImagesFromDb = async (userId) => {
     if (!userId) return;
@@ -277,7 +253,6 @@ const FingerprintModule = ({ data, activeTab }) => {
 
   const handleAction = async (endpoint, body = null) => {
     setIsLoading(true);
-    setIsProcessing(true);
     addLog(`Request ${endpoint}...`, "info");
     try {
       const response = await fetch(`${API_FINGER_URL}${endpoint}`, {
@@ -293,41 +268,71 @@ const FingerprintModule = ({ data, activeTab }) => {
     } catch (error) {
       addLog("Koneksi gagal menghubungkan.", "error");
       return { success: false, message: "Koneksi terputus." };
-    } finally { 
-      setIsLoading(false); 
-      setIsProcessing(false);
-    }
+    } finally { setIsLoading(false); }
   };
 
-  // --- HANDLE PEMILIHAN USER DARI SELECTBOX ---
-  const handleUserSelection = (e) => {
-    const selectedId = e.target.value;
-    const user = availableUsers.find(u => u.UserID.toString() === selectedId);
-    
-    if (user) {
-      setNik(user.UserID.toString());
-      setUserName(user.Name);
-      setAddress(user.Address || "");
-      setIsDataSaved(true); // Otomatis "tersimpan" agar enrollment bisa dimulai
-      addLog(`Subjek dipilih: ${user.Name} (ID: ${user.UserID})`, "success");
-    } else {
-      setNik("");
-      setUserName("");
-      setAddress("");
-      setIsDataSaved(false);
+  const handleSaveUserData = async (e) => {
+    if (e) e.preventDefault();
+    if (!nik.trim() || !userName.trim() || !address.trim()) {
+      showToast("Lengkapi semua field.", "error");
+      return;
     }
+    setIsLoading(true);
+    const formData = new FormData();
+    formData.append("userId", nik.trim());
+    formData.append("Name", userName.trim());
+    formData.append("Address", address.trim());
+    try {
+      const response = await fetch(`${API_REG_URL}/api/face/registration`, { method: "POST", body: formData });
+      if (response.ok) {
+        setIsDataSaved(true);
+        showToast("Data User Berhasil Disimpan.", "success");
+      } else {
+        showToast("Gagal Registrasi User.", "error");
+      }
+    } catch (error) {
+      showToast("Server Registrasi Offline.", "error");
+    } finally { setIsLoading(false); }
   };
+
+  // const handleEnroll = async () => {
+  //   if (!isDataSaved) return showToast("Simpan data user dahulu", "error");
+  //   if (enrollmentStartedRef.current) return;
+  //   const target = getRequiredCount(mode);
+  //   processedFingersRef.current.clear();
+  //   setFingerCaptures(new Array(10).fill(null));
+  //   setEnrollmentComplete(false);
+  //   enrollmentStartedRef.current = true;
+  //   if (isCapturing) {
+  //     await handleAction('/api/fingerprint/stopcapture');
+  //     setIsCapturing(false);
+  //     await new Promise(r => setTimeout(r, 800));
+  //   }
+  //   const res = await handleAction('/api/fingerprint/startenroll', {
+  //     UserId: parseInt(nik) || 0, missingFinger: 0, captureType: parseInt(mode), featureFormat: 0
+  //   });
+  //   if (res.success) {
+  //     setIsEnrolling(true);
+  //     setIsCapturing(true);
+  //     showToast(`Tempelkan ${target} jari secara bergantian`, "success");
+  //   } else {
+  //     showToast(res.message || "Gagal Memulai Enrollment", "error");
+  //     enrollmentStartedRef.current = false;
+  //   }
+  // };
 
   const handleEnroll = async () => {
-    if (!isDataSaved) return showToast("Pilih personel dahulu", "error");
+    if (!isDataSaved) return showToast("Simpan data user dahulu", "error");
     
+    // PERBAIKAN: Izinkan klik ulang jika proses sebelumnya sudah selesai
     if (enrollmentStartedRef.current && !enrollmentComplete) return;
 
     const target = getRequiredCount(mode);
     
+    // RESET STATE UNTUK SESI BARU
     processedFingersRef.current.clear();
     setFingerCaptures(new Array(10).fill(null));
-    setEnrollmentComplete(false); 
+    setEnrollmentComplete(false); // Reset status selesai agar tombol aktif kembali
     enrollmentStartedRef.current = true;
 
     if (isCapturing) {
@@ -359,6 +364,7 @@ const FingerprintModule = ({ data, activeTab }) => {
     setMatchResult(null);
     setVerifyResponse(null);
     capturedFingersRef.current = {};
+    // Reset visual tapi tetap biarkan data DB untuk verifikasi
     setFingerCaptures(prev => prev.map((img, i) => dbFingerImages[i] ? dbFingerImages[i] : null));
     try {
       const res = await fetch(`${API_FINGER_URL}/api/fingerprint/verify`, {
@@ -420,6 +426,8 @@ const FingerprintModule = ({ data, activeTab }) => {
 
   const activeFingers = getActiveFingers();
 
+  // --- KOMPONEN VISUAL BUFFER ---
+  // FIX: Menggunakan min-h-[250px] dan items-start untuk mencegah gambar terpotong
   const VisualBufferPanel = () => (
     <div className="w-full border-2 border-[#00ffff]/20 bg-black/40 p-3 sm:p-5 rounded-sm shadow-2xl shrink-0 flex-1 min-h-[250px] flex flex-col font-mono">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-b border-[#00ffff]/10 pb-2 sm:pb-3 mb-3 sm:mb-4">
@@ -538,6 +546,8 @@ const FingerprintModule = ({ data, activeTab }) => {
               {(isCapturing || isVerifying) && <div className="absolute inset-x-0 h-[2px] bg-[#00ffff] shadow-[0_0_15px_#00ffff] animate-biometric-scan z-50" />}
             </div>
           </div>
+          {/* Visual Buffer di Tab Verifikasi */}
+          {/* <VisualBufferPanel /> */}
         </div>
       </div>
     );
@@ -565,61 +575,32 @@ const FingerprintModule = ({ data, activeTab }) => {
                 if (res.success) setIsConnected(!isConnected);
               }} className={`px-2 sm:px-3 py-0.5 sm:py-1 border-2 text-[9px] sm:text-[11px] font-black uppercase transition-all flex items-center gap-1 sm:gap-2 shadow-lg ${isConnected ? 'bg-rose-500 border-rose-500 text-white' : 'bg-[#00ffff] border-[#00ffff] text-black hover:bg-white'}`}><Power size={10} /> <span className="hidden xs:inline">{isConnected ? 'Disconnect' : 'Connect Device'}</span></button>
           </div>
-          
-          <div className="flex-1 p-4 sm:p-5 pt-6 sm:pt-8 flex flex-col">
-            <div className="flex flex-col gap-4">
+          <div className="flex-1 p-4 sm:p-5 pt-6 sm:pt-8 flex flex-col justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-1">
-                <label className="text-[11px] sm:text-[14px] text-[#00ffff]/60 font-black uppercase tracking-widest ml-1 flex items-center gap-2">
-                  <IdCard size={12}/> Pilih Personel Target
-                </label>
-                
-                {/* SELECTBOX: Menggantikan Input Manual */}
-                <select
-                  value={nik}
-                  onChange={handleUserSelection}
-                  disabled={isLoadingUsers || isProcessing || isEnrolling}
-                  className="w-full bg-black border-2 border-[#00ffff]/10 focus:border-[#00ffff] p-3 text-[#00ffff] text-sm outline-none rounded-sm transition-all cursor-pointer shadow-inner font-black"
-                >
-                  <option value="">-- PILIH PERSONEL ({availableUsers.length} TERDAFTAR) --</option>
-                  {availableUsers.map((user) => (
-                    <option key={user.UserID} value={user.UserID}>
-                      ID: {user.UserID} | {user.Name}
-                    </option>
-                  ))}
-                </select>
+                <label className="text-[11px] sm:text-[14px] text-[#00ffff]/60 font-black uppercase tracking-widest ml-1 flex items-center gap-1"><IdCard size={9}/> User ID / NIK</label>
+                <input disabled={isDataSaved} value={nik} onChange={(e) => setNik(e.target.value)} placeholder="NIK..." className="w-full bg-black/40 border-2 border-[#00ffff]/10 focus:border-[#00ffff] text-[11px] sm:text-[14px] p-2 text-[#00ffff] outline-none rounded-sm uppercase font-mono shadow-inner" />
               </div>
-
-              {/* Display Information dari subjek yang dipilih */}
-              {nik && (
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="p-3 bg-[#00ffff]/5 border border-[#00ffff]/10 rounded-sm">
-                    <span className="text-[7px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Full_Name</span>
-                    <span className="text-[11px] text-white font-bold uppercase truncate block">{userName}</span>
-                  </div>
-                  <div className="p-3 bg-[#00ffff]/5 border border-[#00ffff]/10 rounded-sm">
-                    <span className="text-[7px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Subject_Address</span>
-                    <span className="text-[11px] text-zinc-400 italic truncate block">{address || "N/A"}</span>
-                  </div>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-[11px] sm:text-[14px] text-[#00ffff]/60 font-black uppercase tracking-widest ml-1 flex items-center gap-1"><User size={9}/> Full Name</label>
+                <input disabled={isDataSaved} value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="NAME..." className="w-full bg-black/40 border-2 border-[#00ffff]/10 focus:border-[#00ffff] text-[11px] sm:text-[14px] p-2 text-white outline-none rounded-sm uppercase font-mono shadow-inner" />
+              </div>
+              <div className="col-span-1 sm:col-span-2 space-y-1">
+                <label className="text-[11px] sm:text-[14px] text-[#00ffff]/60 font-black uppercase tracking-widest ml-1 flex items-center gap-1"><MapPin size={9}/> Address</label>
+                <input disabled={isDataSaved} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="ADDRESS..." className="w-full bg-black/40 border-2 border-[#00ffff]/10 focus:border-[#00ffff] text-[11px] sm:text-[14px] p-2 text-zinc-400 outline-none rounded-sm uppercase font-mono shadow-inner" />
+              </div>
             </div>
-
-            <div className="flex flex-wrap gap-2 sm:gap-3 mt-auto pt-6">
-              <div className={`flex-1 py-2 sm:py-3 border-2 font-black text-[11px] sm:text-[14px] uppercase tracking-widest transition-all rounded-sm flex items-center justify-center gap-1 sm:gap-2 ${isDataSaved ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-900 border-zinc-800 text-zinc-600'}`}>
-                {isDataSaved ? <ShieldCheck size={14}/> : <Lock size={14}/>} 
-                <span className="hidden xs:inline">{isDataSaved ? "SESI_AKTIF" : "MENUNGGU_INPUT"}</span>
-              </div>
-              
+            <div className="flex flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
+              <button onClick={handleSaveUserData} disabled={isDataSaved || isLoading} className={`flex-1 py-2 sm:py-3 border-2 font-black text-[11px] sm:text-[14px] uppercase tracking-widest transition-all rounded-sm flex items-center justify-center gap-1 sm:gap-2 ${!isDataSaved ? 'bg-[#00ffff]/10 border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black' : 'bg-zinc-900 border-zinc-800 text-zinc-600'}`}>{isLoading ? <Loader2 size={11} className="animate-spin"/> : isDataSaved ? <Lock size={11}/> : <Send size={11}/>} <span className="hidden xs:inline">{isDataSaved ? "DATA_TERKUNCI" : "Simpan Data User"}</span></button>
               {isDataSaved && (
                 <>
                   <button onClick={() => loadFingerprintImagesFromDb(nik)} disabled={isLoadingDbImages} className="px-3 sm:px-5 py-2 sm:py-3 border-2 border-[#00ffff]/30 text-[#00ffff] text-[9px] sm:text-[11px] font-black hover:bg-[#00ffff] hover:text-black uppercase transition-all rounded-sm"><RefreshCw size={11} className={isLoadingDbImages ? "animate-spin" : ""}/></button>
-                  <button onClick={handleResetForm} className="px-3 sm:px-5 py-2 sm:py-3 border-2 border-[#ff00ff]/30 text-[#ff00ff] text-[9px] sm:text-[11px] font-black hover:bg-[#ff00ff] hover:text-white uppercase transition-all rounded-sm"><Unlock size={11} /></button>
+                  <button onClick={() => { setIsDataSaved(false); setEnrollmentComplete(false); setFingerCaptures(new Array(10).fill(null)); processedFingersRef.current.clear(); }} className="px-3 sm:px-5 py-2 sm:py-3 border-2 border-[#ff00ff]/30 text-[#ff00ff] text-[9px] sm:text-[11px] font-black hover:bg-[#ff00ff] hover:text-white uppercase transition-all rounded-sm"><Unlock size={11} /></button>
                 </>
               )}
             </div>
           </div>
         </div>
-
         <div className="w-full lg:w-[600px] border-2 border-[#00ffff]/30 bg-zinc-900/60 relative rounded-sm flex flex-col justify-between shadow-xl min-h-[220px]">
           <div className="absolute -top-[10px] sm:-top-[12px] left-3 sm:left-5 bg-white text-black px-2 sm:px-3 py-0.5 text-[11px] sm:text-[14px] font-black font-mono uppercase tracking-widest z-[50] whitespace-nowrap">Capture Control</div>
           <div className="flex flex-col gap-3 sm:gap-4 p-3 sm:p-5 mt-2 sm:mt-3 flex-1">
@@ -651,9 +632,10 @@ const FingerprintModule = ({ data, activeTab }) => {
                 }} disabled={!isCapturing} className={`flex-1 py-1.5 sm:py-2 border-2 font-black uppercase text-[14px] sm:text-[18px] transition-all flex items-center justify-center gap-1 sm:gap-2 rounded-sm ${isCapturing ? 'bg-zinc-950 border-[#ff00ff] text-[#ff00ff] hover:bg-[#ff00ff] hover:text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-600'}`}><CircleStop size={11} fill="currentColor" /> Stop</button>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
+                {/* <button onClick={handleEnroll} disabled={!isConnected || isEnrolling || !isDataSaved || enrollmentComplete} className={`flex-1 py-1.5 sm:py-2 border-1 font-black text-[14px] sm:text-[18px] uppercase transition-all rounded-sm flex items-center justify-center gap-1 sm:gap-2 ${isConnected && isDataSaved && !isEnrolling && !enrollmentComplete ? 'bg-[#00ffff] border-[#00ffff] text-black hover:bg-white shadow-lg' : 'bg-zinc-900 border-zinc-700 text-zinc-600'}`}><ShieldCheck size={12} /> {enrollmentComplete ? "SELESAI" : "Start Enroll"}</button> */}
                 <button 
                   onClick={handleEnroll} 
-                  disabled={!isConnected || isEnrolling || !isDataSaved} 
+                  disabled={!isConnected || isEnrolling || !isDataSaved} // HAPUS '|| enrollmentComplete'
                   className={`flex-1 py-1.5 sm:py-2 border-1 font-black text-[14px] sm:text-[18px] uppercase transition-all rounded-sm flex items-center justify-center gap-1 sm:gap-2 ${
                     isConnected && isDataSaved && !isEnrolling 
                     ? 'bg-[#00ffff] border-[#00ffff] text-black hover:bg-white shadow-lg' 
@@ -661,7 +643,7 @@ const FingerprintModule = ({ data, activeTab }) => {
                   }`}
                 >
                   <ShieldCheck size={12} /> 
-                  {isEnrolling ? "PROCESSING..." : enrollmentComplete ? "SELESAI" : "Start Enroll"} 
+                  {isEnrolling ? "PROCESSING..." : "Start Enroll"} 
                 </button>
                 <button onClick={handleResetForm} className="flex-1 py-1.5 sm:py-2 border-2 border-red-500/30 text-red-500 text-[14px] sm:text-[18px] font-black hover:bg-red-500 hover:text-white uppercase transition-all rounded-sm flex items-center justify-center gap-1 sm:gap-2"><Trash2 size={11} /> Reset</button>
               </div>
@@ -669,6 +651,7 @@ const FingerprintModule = ({ data, activeTab }) => {
           </div>
         </div>
       </div>
+      {/* Visual Buffer di Tab Enrollment */}
       <VisualBufferPanel />
       <style jsx global>{`
         @keyframes biometric-scan { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }

@@ -225,21 +225,18 @@ const App = ({ data }) => {
     <div className="flex-1 p-6 flex flex-col gap-5 overflow-hidden font-mono bg-zinc-950 text-white">
       
       {/* HEADER: KONEKTIVITAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 shrink-0">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 shrink-0">
         <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-4 relative rounded-sm shadow-xl flex items-center justify-between">
            <div className="absolute -top-[10px] left-4 bg-white text-black px-3 py-0.5 text-[10px] font-black uppercase z-10">Connectivity</div>
            <div className="flex gap-2">
               <ConnectionBtn label="CMD" active={connections.cmd} onClick={() => connectSvc('cmd', 25014)} />
               <ConnectionBtn label="MAIN" active={connections.main} onClick={() => connectSvc('main', 9999)} />
            </div>
-           <div className="flex gap-4 text-[10px]">
+           {/* <div className="flex gap-4 text-[10px]">
               <div className="flex flex-col items-end"><span className="text-zinc-500 uppercase">SDK Ver</span><span className="text-[#00ffff] font-black">{sdkVersion || "---"}</span></div>
               <div className="flex flex-col items-end"><span className="text-zinc-500 uppercase">Device ID</span><span className="text-[#00ffff] font-black">{deviceId || "---"}</span></div>
-           </div>
-        </div>
-
-        <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-4 relative rounded-sm shadow-xl">
-           <div className="absolute -top-[10px] left-4 bg-white text-black px-3 py-0.5 text-[10px] font-black uppercase z-10">Inisialisasi SDK</div>
+           </div> */}
+           {/* <div className="absolute -top-[10px] left-4 bg-white text-black px-3 py-0.5 text-[10px] font-black uppercase z-10">Inisialisasi SDK</div> */}
            <div className="flex gap-2 items-center h-full">
               <Key size={14} className="text-[#00ffff]/60" />
               <input 
@@ -250,6 +247,19 @@ const App = ({ data }) => {
               <button onClick={initializePlugin} className="bg-[#00ffff] text-black px-4 py-1.5 text-[10px] font-black uppercase hover:brightness-110 active:scale-95 transition-all">INIT</button>
            </div>
         </div>
+
+        {/* <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-4 relative rounded-sm shadow-xl">
+           <div className="absolute -top-[10px] left-4 bg-white text-black px-3 py-0.5 text-[10px] font-black uppercase z-10">Inisialisasi SDK</div>
+           <div className="flex gap-2 items-center h-full">
+              <Key size={14} className="text-[#00ffff]/60" />
+              <input 
+                type="text" value={license} onChange={(e) => setLicense(e.target.value)}
+                placeholder="Masukkan Kode Lisensi..." 
+                className="flex-1 bg-black border border-[#00ffff]/20 px-3 py-1.5 text-[11px] text-white outline-none focus:border-[#00ffff]/60"
+              />
+              <button onClick={initializePlugin} className="bg-[#00ffff] text-black px-4 py-1.5 text-[10px] font-black uppercase hover:brightness-110 active:scale-95 transition-all">INIT</button>
+           </div>
+        </div> */}
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-5 overflow-hidden">
