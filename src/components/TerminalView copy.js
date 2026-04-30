@@ -49,9 +49,7 @@ const TerminalView = (props) => {
   const isPrinter = shortText.includes("PRINTER");
   const isBarcode = shortText.includes("BARCODE");
   const isOCR = shortText.includes("OCR");
-  // const isSignPad = shortText.includes("SIGN");
-  // 5. Deklarasi SignPadControls (Sekarang aman karena saveSignature sudah ada)
-  const isSignPad = props.data?.short?.toUpperCase().includes("SIGN");
+  const isSignPad = shortText.includes("SIGN");
   const isFingerprint = shortText.includes("FINGERPRINT");
   const isDocScanner = shortText.includes("DOKUMEN");
   const isPassportScanner = shortText.includes("PASSPORT");
@@ -67,9 +65,6 @@ const TerminalView = (props) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef(null);
   const [scannerLogs, setScannerLogs] = useState([]); 
-
-  // 1. Inisialisasi Semua State
-  const [terminalRotation, setTerminalRotation] = useState(0);
   
   const shortTitle = props.data?.short?.split(' ')[0] || "SISTEM";
 
@@ -78,13 +73,6 @@ const TerminalView = (props) => {
 
   const addLog = (message) => {
     setConsoleLogs(prev => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev].slice(0, 20));
-  };
-
-  // 3. Logika Rotasi Shell
-  const toggleFullRotation = () => {
-    const nextRotation = (terminalRotation + 180) % 360;
-    setTerminalRotation(nextRotation);
-    addLog(`ROTASI_SHELL_AKTIF: ${nextRotation}°`);
   };
 
   // --- 3. GLOBAL EVENT LISTENERS ---
@@ -203,26 +191,6 @@ const TerminalView = (props) => {
     addLog(`EKSEKUSI_PALM_${command.toUpperCase()}`);
     window.dispatchEvent(new CustomEvent(`palm:${command}`));
   };
-
-  const SignPadControls = isSignPad && (
-    <div className="absolute bottom-6 right-6 flex gap-2 z-[110]">
-      {/* Tombol Rotasi Shell Seluruhnya */}
-      <button 
-        onClick={toggleFullRotation}
-        className="flex items-center gap-2 px-4 py-2.5 border-2 border-orange-500 bg-orange-500/20 text-orange-400 font-black text-[10px] uppercase rounded-sm hover:bg-orange-500 hover:text-white transition-all shadow-lg"
-      >
-        <RotateCcw size={14} /> SHELL_{terminalRotation}°
-      </button>
-
-      {/* <button disabled={!isSignPadReady} onClick={saveSignature} className="flex items-center gap-2 px-5 py-2.5 border-2 border-[#00ffff]/60 bg-[#00ffff]/20 text-[#00ffff] font-black text-[10px] uppercase rounded-sm shadow-2xl hover:bg-[#00ffff] hover:text-black">
-        <Save size={14} /> SAVE
-      </button>
-      
-      <button disabled={!isSignPadReady} onClick={clearCanvas} className="flex items-center gap-2 px-5 py-2.5 border-2 border-red-500/60 bg-red-500/20 text-red-500 font-black text-[10px] uppercase rounded-sm shadow-2xl hover:bg-red-500 hover:text-white">
-        <RotateCcw size={14} /> CLEAR
-      </button> */}
-    </div>
-  );
 
   // --- 5. TABS CONFIGURATION ---
   const tabs = isFaceRecognition
@@ -377,25 +345,7 @@ const TerminalView = (props) => {
   );
 
   return (
-<div 
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 overflow-hidden"
-      style={{ perspective: "1200px" }}
-    >
-      <div 
-        style={{ 
-          transform: `rotate(${terminalRotation}deg)`, 
-          transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-          // Tukar dimensi saat rotasi vertikal (90/270)
-          width: (terminalRotation === 90 || terminalRotation === 360) ? '100vh' : '100vw',
-          height: (terminalRotation === 90 || terminalRotation === 360) ? '100vw' : '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
-
     <TerminalShell {...props} activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs} leftColumn={LeftColumn}>
-      {SignPadControls}
       <AnimatePresence mode="wait">
         <motion.div 
           key={activeTab} 
@@ -418,8 +368,6 @@ const TerminalView = (props) => {
         </motion.div>
       </AnimatePresence>
     </TerminalShell>
-    </div>
-    </div>
   );
 };
 

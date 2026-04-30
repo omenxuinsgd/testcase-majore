@@ -16,7 +16,7 @@ const TerminalShell = ({
   setActiveTab, 
   tabs, 
   leftColumn, 
-  children 
+  children, ...props 
 }) => {
   // Mengambil kata pertama dari short title untuk estetika banner yang besar
   const shortTitle = data?.short?.split(' ')[0] || "SYSTEM";
