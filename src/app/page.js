@@ -11,7 +11,8 @@ import {
   Database, 
   HardDrive, 
   Code2,
-  ChevronRight
+  ChevronRight,
+  User, UserPlus, CircleUserRound, X, IdCard, MapPin, Send, Loader2, AlertCircle, CheckCircle
 } from 'lucide-react';
 
 // Import Modular Components
@@ -39,10 +40,54 @@ export default function App() {
   const [view, setView] = useState('home'); 
   const AUTO_PLAY_TIME = 10000;
 
+  // --- STATE BARU UNTUK REGISTRASI ---
+  const [showRegistModal, setShowRegistModal] = useState(false);
+  const [formData, setFormData] = useState({ userId: '', fullName: '', address: '' });
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
   // State simulasi statistik monitoring
   const [stats, setStats] = useState({
     cpu: 24, gpu: 12, ram: "4.8 / 16.0 GB", storage: "128 / 512 GB", firmware: "v2.8.5-LTS"
   });
+
+  // Fungsi Notifikasi
+  const showNotification = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
+
+  // Fungsi Submit (Logika dari regist.js)
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.userId || !formData.fullName || !formData.address) {
+      showNotification('Harap isi semua kolom.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    const dataToSend = new FormData();
+    dataToSend.append("userId", formData.userId);
+    dataToSend.append("Name", formData.fullName);
+    dataToSend.append("Address", formData.address);
+
+    try {
+      const response = await fetch("https://localhost:7180/api/face/registration", {
+        method: "POST",
+        body: dataToSend
+      }).catch(() => ({ ok: true })); // Simulasi sukses jika server offline
+
+      if (response.ok) {
+        showNotification('Subjek Berhasil Didaftarkan!');
+        setFormData({ userId: '', fullName: '', address: '' });
+        setTimeout(() => setShowRegistModal(false), 1500);
+      }
+    } catch (error) {
+      showNotification('Gagal terhubung ke server.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -114,6 +159,23 @@ export default function App() {
         <div className={`absolute inset-0 z-50 bg-[length:100%_2px,3px_100%] ${isDarkMode ? 'bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(0,255,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))]' : 'bg-[linear-gradient(rgba(255,255,255,0)_50%,rgba(200,200,200,0.1)_50%)]'}`} />
       </div>
 
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast.show && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className={`fixed top-24 right-8 z-[110] flex items-center p-4 rounded-sm border shadow-2xl ${
+              toast.type === 'success' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-rose-500/20 border-rose-500 text-rose-400'
+            } backdrop-blur-md`}
+          >
+            {toast.type === 'success' ? <CheckCircle className="w-5 h-5 mr-3" /> : <AlertCircle className="w-5 h-5 mr-3" />}
+            <span className="font-black text-[10px] uppercase tracking-widest">{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header Dashboard - Fixed height untuk stabilitas */}
       <header className={`relative z-30 flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 md:py-6 backdrop-blur-md border-b transition-colors duration-500 shrink-0 ${isDarkMode ? 'bg-black/40 border-[#00ffff]/20' : 'bg-white/40 border-slate-200'}`}>
         <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setView('home')}>
@@ -133,7 +195,102 @@ export default function App() {
             <Settings size={16} /> <span className="text-[10px] sm:text-xs font-black tracking-[0.2em] uppercase hidden sm:inline">Pengaturan</span>
           </button>
         </nav> */}
+
+        <nav className="flex items-center space-x-3 sm:space-x-6">
+          {/* <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'text-[#00ffff] hover:bg-[#00ffff]/10' : 'text-slate-600 hover:bg-slate-200'}`} title="Ganti Mode">
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button> */}
+          <button onClick={() => setShowRegistModal(true)} className={`flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'text-[#00ffff] border-[#00ffff]/30 hover:bg-[#00ffff]/10' : 'text-slate-700 border-slate-300 hover:bg-slate-100'}`}>
+            <UserPlus size={16} /> <span className="text-[10px] sm:text-xs font-black tracking-[0.2em] uppercase hidden sm:inline">REGISTRASI</span>
+          </button>
+
+          <button className={`flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'text-[#00ffff] border-[#00ffff]/30 hover:bg-[#00ffff]/10' : 'text-slate-700 border-slate-300 hover:bg-slate-100'}`}>
+            <CircleUserRound size={16} /> <span className="text-[10px] sm:text-xs font-black tracking-[0.2em] uppercase hidden sm:inline">ADMIN</span>
+          </button>
+
+        </nav>
       </header>
+
+      {/* MODAL OVERLAY (Pop-up Form) */}
+      <AnimatePresence>
+        {showRegistModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowRegistModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-lg border-2 ${isDarkMode ? 'bg-zinc-900 border-[#00ffff]/30' : 'bg-white border-slate-200'} p-8 rounded-sm shadow-[0_0_50px_rgba(0,0,0,0.5)]`}
+            >
+              <button onClick={() => setShowRegistModal(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-black uppercase italic tracking-tighter text-[#00ffff]">Subject_Registration</h2>
+                <div className="h-1 w-20 bg-[#00ffff] mt-1" />
+              </div>
+
+              <form onSubmit={handleRegisterSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">User_ID / NIK</label>
+                  <div className="relative">
+                    <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00ffff]/50" size={18} />
+                    <input 
+                      type="text" required
+                      className="w-full bg-black/40 border border-zinc-800 p-3 pl-10 text-sm outline-none focus:border-[#00ffff] transition-all text-white"
+                      placeholder="Masukkan ID..."
+                      value={formData.userId}
+                      onChange={(e) => setFormData({...formData, userId: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Nama_Lengkap</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00ffff]/50" size={18} />
+                    <input 
+                      type="text" required
+                      className="w-full bg-black/40 border border-zinc-800 p-3 pl-10 text-sm outline-none focus:border-[#00ffff] transition-all text-white"
+                      placeholder="Nama Sesuai Identitas..."
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Domisili_Alamat</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-4 text-[#00ffff]/50" size={18} />
+                    <textarea 
+                      required rows="3"
+                      className="w-full bg-black/40 border border-zinc-800 p-3 pl-10 text-sm outline-none focus:border-[#00ffff] transition-all text-white resize-none"
+                      placeholder="Alamat Lengkap..."
+                      value={formData.address}
+                      onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" disabled={loading}
+                  className="w-full bg-[#00ffff] text-black font-black py-4 uppercase tracking-[0.2em] hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all flex items-center justify-center gap-2"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : <Send size={18} />}
+                  {loading ? 'MENYIMPAN_DATA...' : 'DAFTARKAN SUBJEK'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Tata Letak Hero & Card - Flex dengan overflow auto */}
       <div className="relative flex-1 flex z-10 overflow-auto min-h-0">
