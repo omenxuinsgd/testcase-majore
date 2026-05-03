@@ -518,7 +518,7 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
                                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-in zoom-in-95 duration-500">
                                             {capturedImages.map((img) => (
                                                 <div key={img.id} className="flex flex-col bg-zinc-900/60 border border-[#00ffff]/20 rounded-sm p-2 shadow-xl group">
-                                                    <div className="flex items-center gap-2 mb-2 px-1 border-b border-white/5 pb-1"><Camera size={10} className="text-[#00ffff]" /><span className="text-[9px] font-black text-zinc-300 uppercase tracking-tighter">{img.label}</span></div>
+                                                    <div className="flex items-center gap-2 mb-2 px-1 border-b border-white/5 pb-1"><Camera size={16} className="text-[#00ffff]" /><span className="text-[14px] font-mono text-zinc-300 uppercase tracking-tighter">{img.label}</span></div>
                                                     <div className="aspect-[3/4] bg-black/40 rounded-sm overflow-hidden relative"><img src={img.url} alt={img.label} className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-700" /></div>
                                                 </div>
                                             ))}

@@ -1,5 +1,6 @@
 "use client";
 import React, { useRef, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Folder, 
   Scan, 
@@ -34,6 +35,8 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
   // State Log Lokal (Sesuai Referensi)
   const [logs, setLogs] = useState([`[SYSTEM] OCR Intelligence v2.1 Online.`]);
 
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
   // Refs untuk Camera & Canvas logic
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -46,6 +49,12 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const BASE_URL = "http://localhost:5160";
+
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
 
   // Helper untuk menambahkan log
   const addModuleLog = (msg, type = "info") => {
@@ -60,19 +69,26 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
     }
   };
 
+  // --- SINKRONISASI LOG KE SIDEBAR ---
+    useEffect(() => {
+      window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
+    }, [logs]);
+
   // --- LOGIKA KAMERA ---
   const startCamera = async () => {
     try {
-      addModuleLog("Memulai inisialisasi kamera browser...");
+      addModuleLog("Memulai inisialisasi kamera...");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 3264 }, height: { ideal: 2448 } }
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCameraActive(true);
+        showToast("Kamera Berhasil Diaktifkan", "success");
         addModuleLog("Kamera berhasil diaktifkan.", "success");
       }
     } catch (err) {
+      showToast("Akses Kamera Ditolak", "error");
       addModuleLog(`Akses kamera ditolak: ${err.message}`, "error");
     }
   };
@@ -82,6 +98,7 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
       videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
       setIsCameraActive(false);
+      showToast("Kamera Dimatikan", "info");
       addModuleLog("Aliran kamera dihentikan.");
       window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
     }
@@ -153,17 +170,12 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
   };
 
   const handleMouseUp = () => { draggingPointIndex.current = -1; };
-
-  // --- SINKRONISASI LOG KE SIDEBAR ---
-    useEffect(() => {
-      window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
-    }, [logs]);
   
-    const addLog = (msg, type = "info") => {
-      const timestamp = new Date().toLocaleTimeString();
-      const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
-      setLogs(prev => [`${prefix} ${msg} (${timestamp})`, ...prev].slice(0, 50));
-    };
+    // const addLog = (msg, type = "info") => {
+    //   const timestamp = new Date().toLocaleTimeString();
+    //   const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
+    //   setLogs(prev => [`${prefix} ${msg} (${timestamp})`, ...prev].slice(0, 50));
+    // };
     
   // --- LOOP ANIMASI PREVIEW ---
   useEffect(() => {
@@ -231,6 +243,7 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
     if (inputMode === 'file' && !selectedFile) return;
 
     setIsProcessing(true);
+    showToast("Memulai Ekstraksi OCR...", "success");
     addModuleLog("Menjalankan pemrosesan citra & OCR Engine...");
 
     try {
@@ -277,9 +290,11 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
         visualization_base64: "data:image/jpeg;base64," + json.image,
         markdown_source: json.raw || ""
       });
+      showToast("Ekstraksi Berhasil!", "success");
       addModuleLog("Ekstraksi OCR berhasil diselesaikan.", "success");
 
     } catch (err) {
+      showToast("Gagal Memproses Dokumen", "error");
       addModuleLog(`Ekstraksi Gagal: ${err.message}`, "error");
     } finally {
       setIsProcessing(false);
@@ -320,6 +335,27 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar font-mono">
+        {/* KOMPONEN TOAST GLOBAL */}
+          <AnimatePresence>
+            {toast.show && (
+              <motion.div 
+                initial={{ opacity: 0, x: 50 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                exit={{ opacity: 0, x: 50 }} 
+                className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+                  toast.type === 'success' 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+                    : 'bg-rose-500/10 border-rose-500 text-rose-400'
+                }`}
+              >
+                <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+                <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+                  <X size={18} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start shrink-0">
         
         {/* PANEL KONTROL */}

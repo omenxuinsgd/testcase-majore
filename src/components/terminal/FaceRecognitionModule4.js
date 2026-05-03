@@ -28,7 +28,7 @@ import toast, { Toaster } from 'react-hot-toast';
 
 /**
  * FaceRecognitionModule
- * Terintegrasi penuh dengan API Backend (Port 5160)
+ * Terintegrasi penuh dengan API Backend (Port 5001)
  * Update: Visualisasi Atribut Wajah (Mask, Gender, Age, Pose, Spoof) dalam kontainer terstruktur.
  * FIX: Responsif untuk layar 11.6" 1920x1080 dengan zoom 90%
  */

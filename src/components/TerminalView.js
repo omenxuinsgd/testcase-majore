@@ -355,9 +355,9 @@ const TerminalView = (props) => {
         
         {/* Tombol Khusus Sign Pad Overlay */}
         {isSignPad && (
-          <div className="absolute bottom-6 right-6 flex gap-2 z-[100]">
-             <button disabled={!isSignPadReady} onClick={saveSignature} className={`flex items-center gap-2 px-5 py-2.5 border-2 text-[10px] font-black uppercase transition-all rounded-sm shadow-2xl ${isSignPadReady ? 'bg-[#00ffff]/20 border-[#00ffff]/60 text-[#00ffff] hover:bg-[#00ffff] hover:text-black shadow-[0_0_15px_#00ffff44]' : 'bg-zinc-900/50 border-zinc-700 text-zinc-600 opacity-30 cursor-not-allowed'}`}><Save size={14} /> SAVE</button>
-             <button disabled={!isSignPadReady} onClick={clearCanvas} className={`flex items-center gap-2 px-5 py-2.5 border-2 text-[10px] font-black uppercase transition-all rounded-sm shadow-2xl ${isSignPadReady ? 'bg-red-500/20 border-red-500/60 text-red-500 hover:bg-red-500 hover:text-white shadow-[0_0_15px_#ef444444]' : 'bg-zinc-900/50 border-zinc-700 text-zinc-600 opacity-30 cursor-not-allowed'}`}><RotateCcw size={14} /> CLEAR</button>
+          <div className="absolute bottom-3 left-2 flex gap-2 z-[100]">
+             <button disabled={!isSignPadReady} onClick={saveSignature} className={`flex items-center gap-2 px-5 py-1.5 border-2 text-[16px] font-black uppercase transition-all rounded-sm shadow-2xl ${isSignPadReady ? 'bg-[#00ffff]/20 border-[#00ffff]/60 text-black hover:bg-[#00ffff] hover:text-black shadow-[0_0_15px_#00ffff44]' : 'bg-zinc-900/50 border-zinc-700 text-zinc-600 opacity-30 cursor-not-allowed'}`}><Save size={18} /> SIMPAN</button>
+             <button disabled={!isSignPadReady} onClick={clearCanvas} className={`flex items-center gap-2 px-5 py-1.5 border-2 text-[16px] font-black uppercase transition-all rounded-sm shadow-2xl ${isSignPadReady ? 'bg-red-500/20 border-red-500/60 text-red-500 hover:bg-red-500 hover:text-white shadow-[0_0_15px_#ef444444]' : 'bg-zinc-900/50 border-zinc-700 text-zinc-600 opacity-30 cursor-not-allowed'}`}><RotateCcw size={18} /> HAPUS</button>
           </div>
         )}
 
@@ -424,7 +424,7 @@ const TerminalView = (props) => {
                             </div>
                           ))
                        ) : (
-                          <div className="h-full flex items-center justify-center text-zinc-700 italic uppercase tracking-widest text-[8px]">
+                          <div className="h-full flex items-center justify-center text-zinc-500 italic uppercase tracking-widest text-[14px]">
                             Waiting for device activity...
                           </div>
                        )}

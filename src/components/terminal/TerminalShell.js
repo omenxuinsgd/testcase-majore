@@ -104,9 +104,9 @@ const TerminalShell = ({
       {/* FOOTER */}
       <div className={`px-8 py-3 border-t-2 flex justify-between items-center text-[10px] font-black ${isDarkMode ? 'bg-zinc-950/90 border-[#00ffff]/30' : 'bg-zinc-100'}`}>
         <div className="flex space-x-12 text-zinc-600 uppercase tracking-[0.2em]">
-          <span className="flex items-center gap-2"><Globe size={14} className="text-[#00ffff]/50" /> 127.0.0.1</span>
+          {/* <span className="flex items-center gap-2"><Globe size={14} className="text-[#00ffff]/50" /> 127.0.0.1</span>
           <span className="flex items-center gap-2"><User size={14} className="text-[#00ffff]/50" /> root_access</span>
-          <span className="flex items-center gap-2"><Wifi size={14} className="text-[#00ffff]/50" /> mesh_secure</span>
+          <span className="flex items-center gap-2"><Wifi size={14} className="text-[#00ffff]/50" /> mesh_secure</span> */}
         </div>
         <div className="text-[#00ffff] drop-shadow-[0_0_5px_#00ffff] tracking-[0.5em] font-black uppercase">
           System_Synchronized

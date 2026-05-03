@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, 
   Camera, 
@@ -19,7 +20,7 @@ import {
   Cpu,
   Clock,
   Database,
-  RefreshCw,
+  RefreshCw, X,
   Link as LinkIcon
 } from 'lucide-react';
 
@@ -45,6 +46,8 @@ const App = ({ data }) => {
   const [isLicenseActive, setIsLicenseActive] = useState(false); // Melacak hasil AUTO-INIT
   const [isCameraOpen, setIsCameraOpen] = useState(false); // Melacak status kamera
 
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+    
   // --- State Fungsi Kamera ---
   const [camFunc, setCamFunc] = useState({
     devType: 0, 
@@ -67,6 +70,13 @@ const App = ({ data }) => {
   const mainCanvas = useRef(null);
   const savePathInputRef = useRef(null);
   const barcodePathInputRef = useRef(null);
+
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
+
 
   const addLog = (message, type = "info") => {
     const time = new Date().toLocaleTimeString();
@@ -185,7 +195,8 @@ const checkApiStatus = async () => {
   }
 
   addLog("Memeriksa status endpoint API Barcode SDK...", "info");
-  
+  showToast("Memeriksa status SDK...", "info");
+
   const ports = { cmd: 25014, main: 9999 };
   let activeConns = { cmd: false, main: false };
 
@@ -199,6 +210,7 @@ const checkApiStatus = async () => {
         // AUTO-INIT LOGIC: Jika kedua server aktif, eksekusi lisensi
         if (newConns.cmd && newConns.main && !isAutoInitializing.current) {
           isAutoInitializing.current = true;
+          
           addLog("Server CMD & MAIN Aktif. Memulai Auto-Init Lisensi...", "info");
           
           // Kirim perintah init secara manual menggunakan WebSocket yang baru terbuka
@@ -212,6 +224,8 @@ const checkApiStatus = async () => {
         
         return newConns;
       });
+
+      showToast(`Server ${type.toUpperCase()} Terhubung`, "success");
 
       addLog(`Status API ${type.toUpperCase()}: Terhubung otomatis.`, "success");
       
@@ -228,6 +242,7 @@ const checkApiStatus = async () => {
     };
 
     testWs.onerror = () => {
+      showToast(`Server ${type.toUpperCase()} Tidak Terhubung`, "error");
       addLog(`Status API ${type.toUpperCase()}: TIDAK AKTIF.`, "error");
     };
   });
@@ -274,18 +289,20 @@ const checkApiStatus = async () => {
       case 8:
       case 107: setDeviceId(data.did || "N/A"); break;
       // case 10: addLog("Kamera berhasil diaktifkan."); break;
-      case 12: addLog("Kamera dimatikan."); break;
+      // case 12: addLog("Kamera dimatikan."); break;
       
       // Respon Ambil Gambar (ID 14)
       case 14: 
         if (data.error === 0) addLog("Photo Taken. Processing Image, Please Wait");
-        else addLog(`Gagal memotret: Error ${data.error}`);
+        else addLog(`Gagal memotret: Error ${data.error}, periksa path penyimpanan!`, "error");
+        showToast("Gambar Mengambil Gambar", "error");
         break;
 
       // Respon Penyimpanan Gambar (ID 301)
       case 301: 
         if (data.error === 0 && data.file1 !== "null") {
-          addLog(`Image Saved, File Name is: ${data.file1}`);
+          showToast("Gambar Berhasil Disimpan", "success");
+          addLog(`Image Saved, File Name is: ${data.file1}`, "success");
         }
         break;
 
@@ -294,16 +311,19 @@ const checkApiStatus = async () => {
         if (data.error === 0) {
           const typeStr = getBarcodeTypeString(data.type);
           setScanResult({ data: data.text, type: typeStr });
-          addLog(`Barcode Recognized, Type: ${typeStr}, Content: ${data.text}`);
+          showToast("Barcode Terdeteksi!", "success");
+          addLog(`Barcode Recognized, Type: ${typeStr}, Content: ${data.text}`, "success");
         }
         break;
 
       // case 2: addLog(data.error === 0 ? "Inisialisasi Plugin Berhasil" : `Gagal Inisialisasi: Error ${data.error}`); break;
       case 2: // Respon Inisialisasi Plugin[cite: 33]
         if (data.error === 0) {
+          showToast("SDK Barcode Siap Digunakan", "success");
           addLog("AUTO-INIT BERHASIL: SDK Barcode siap digunakan.", "success");
           setIsLicenseActive(true); // <--- KUNCI UTAMA: Mengaktifkan tombol Enable Camera
         } else {
+          showToast(`Inisialisasi Gagal: Error ${data.error}`, "error");
           addLog(`AUTO-INIT GAGAL: Kode Error ${data.error}`, "error");
           setIsLicenseActive(false);
         }
@@ -311,9 +331,11 @@ const checkApiStatus = async () => {
 
       case 10: // Konfirmasi Kamera Terbuka[cite: 33]
         if (data.error === 0 || data.error === 12) {
+          showToast("Kamera Utama Diaktifkan", "success");
           addLog("Kamera Utama Diaktifkan", "success");
           setIsCameraOpen(true);
         } else if (data.error === 13) {
+          showToast("Scanner tidak terhubung.", "error");
           addLog("Scanner is not connected. Please connect the scanner to this computer.", "error"); // Sesuai Source 41
           setIsCameraOpen(false);
         } else {
@@ -322,7 +344,8 @@ const checkApiStatus = async () => {
         break;
 
       case 12: // Konfirmasi Kamera Tertutup[cite: 33]
-        addLog("Kamera dimatikan.");
+        addLog("Kamera dimatikan.", "success");
+        showToast("Kamera dimatikan.", "info");
         setIsCameraOpen(false); // <--- Mengaktifkan tombol Enable kembali[cite: 39]
         break;
 
@@ -388,8 +411,28 @@ const checkApiStatus = async () => {
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-5 overflow-hidden font-mono bg-zinc-950 text-white">
-      
+    <div className="flex-1 p-3 flex flex-col gap-5 overflow-hidden font-mono bg-zinc-950 text-white">
+      {/* KOMPONEN TOAST GLOBAL */}
+    <AnimatePresence>
+      {toast.show && (
+        <motion.div 
+          initial={{ opacity: 0, x: 50 }} 
+          animate={{ opacity: 1, x: 0 }} 
+          exit={{ opacity: 0, x: 50 }} 
+          className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+              : 'bg-rose-500/10 border-rose-500 text-rose-400'
+          }`}
+        >
+          <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+          <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
       {/* HEADER: KONEKTIVITAS */}
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 shrink-0">
         <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-4 relative rounded-sm shadow-xl flex items-center justify-between">
@@ -532,29 +575,29 @@ const checkApiStatus = async () => {
                   {/* ENABLE CAMERA */}
                   <button 
                     onClick={openCamera} 
-                    // Syarat Aktif: Lisensi harus TRUE DAN Kamera harus sedang CLOSED
+                    // Aktif hanya jika Lisensi OK DAN Kamera sedang tertutup
                     disabled={!isLicenseActive || isCameraOpen} 
-                    className={`py-2.5 rounded-sm text-[18px] font-black uppercase transition-all flex items-center justify-center gap-2 border ${
+                    className={`py-2.5 rounded-sm text-[18px] font-black uppercase transition-all flex items-center justify-center gap-2 border-2 ${
                       isLicenseActive && !isCameraOpen 
-                        ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/40' 
+                        ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
                         : 'bg-zinc-800/50 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-30'
                     }`}
                   >
-                    <Play size={18}/> Enable Camera
+                    <Play size={18} fill="currentColor"/> Enable Camera
                   </button>
 
                   {/* DISABLE CAMERA */}
                   <button 
                     onClick={closeCamera} 
-                    // Syarat Aktif: Kamera harus sedang OPEN
+                    // Aktif hanya jika Kamera sedang terbuka
                     disabled={!isCameraOpen} 
-                    className={`mt-3 py-2.5 rounded-sm text-[18px] font-black uppercase transition-all flex items-center justify-center gap-2 border ${
+                    className={`mt-3 py-2.5 rounded-sm text-[18px] font-black uppercase transition-all flex items-center justify-center gap-2 border-2 ${
                       isCameraOpen 
-                        ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/40' 
+                        ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
                         : 'bg-zinc-800/50 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-30'
                     }`}
                   >
-                    <Square size={18}/> Disable Camera
+                    <Square size={18} fill="currentColor"/> Disable Camera
                   </button>
                 </div>
               </div>
@@ -632,13 +675,13 @@ const checkApiStatus = async () => {
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-3">
+                 <div className="grid grid-cols-1 gap-3">
                     <button onClick={startBarcodeRecog} className="bg-blue-600 hover:bg-blue-700 text-white py-2 text-[16px] font-black uppercase tracking-tighter transition-all active:scale-95 shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2">
                        <Play size={14} fill="white" /> MULAI RECOGNITION
                     </button>
-                    <button onClick={stopBarcodeRecog} className="bg-zinc-800 hover:bg-zinc-900 text-zinc-400 py-2 text-[16px] font-black uppercase tracking-tighter transition-all active:scale-95 border border-white/5 flex items-center justify-center gap-2">
+                    {/* <button onClick={stopBarcodeRecog} className="bg-zinc-800 hover:bg-zinc-900 text-zinc-400 py-2 text-[16px] font-black uppercase tracking-tighter transition-all active:scale-95 border border-white/5 flex items-center justify-center gap-2">
                        <Square size={14} fill="currentColor" /> BERHENTIKAN RECOGNITION
-                    </button>
+                    </button> */}
                  </div>
 
                  {scanResult ? (

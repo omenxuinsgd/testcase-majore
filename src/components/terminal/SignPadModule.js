@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, 
   Wifi, 
@@ -15,7 +16,7 @@ import {
   Loader2,
   Search,
   Lock,
-  Unlock
+  Unlock, X
 } from 'lucide-react';
 
 /**
@@ -36,8 +37,16 @@ const SignPadModule = ({ data }) => {
   const placeholderSign = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIzMCI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjMwIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiM2NjYiIGZvbnQtc2l6ZT0iOCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZHk9Ii4zZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5PX0lNRzwvdGV4dD48L3N2Zz4=";
 
   const [userList, setUserList] = useState([]);
-
+  
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+   
   const API_BASE = "http://localhost:5160"; 
+
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
 
   // --- 1. LOAD DAFTAR PERSONEL (INITIAL) ---
   useEffect(() => {
@@ -121,12 +130,14 @@ const SignPadModule = ({ data }) => {
             });
 
             if (res.ok) {
+                showToast("Tanda Tangan Berhasil Disimpan!", "success");
                 addLog(`Tanda tangan ${regData.fullName} berhasil disimpan!`, "success");
                 // Refresh data dari server alih-alih reset manual yang menghapus semua
                 await loadBiometricData(regData.userId);
                 setIsDataSaved(false);
                 window.dispatchEvent(new CustomEvent('signpad:data-reset')); 
             } else {
+              showToast("Gagal Menyimpan ke Database", "error");
                 addLog(`Gagal menyimpan: ${res.status}`, "error");
             }
         } catch (err) {
@@ -165,6 +176,7 @@ const SignPadModule = ({ data }) => {
         fullName: user.Name,
         address: user.Address || ""
       });
+      showToast(`Personel Terpilih: ${user.Name}`, "success");
       addLog(`Personel aktif: ${user.Name}`, "info");
     } else {
       setRegData({ userId: "", fullName: "", address: "" });
@@ -179,7 +191,8 @@ const SignPadModule = ({ data }) => {
     }
     setIsDataSaved(true);
     window.dispatchEvent(new CustomEvent('signpad:data-ready'));
-    addLog("Data dikunci. Sila tandatangan di bar sisi.", "success");
+    showToast("Data Dikunci. Silahkan tandatangan di Sidebar.", "success");
+    addLog("Data dikunci. Silahkan tandatangan!", "success");
   };
 
   const handleResetAll = () => {
@@ -191,11 +204,11 @@ const SignPadModule = ({ data }) => {
   };
 
   const handleDeleteUser = async (id) => {
-    if (!confirm("Padam data tandatangan ini?")) return;
+    if (!confirm("Hapus data tandatangan ini?")) return;
     try {
       const res = await fetch(`${API_BASE}/api/palm/del_sign/${id}`, { method: "DELETE" });
       if (res.ok) {
-        addLog(`Rekaman [${id}] dipadam.`, "success");
+        addLog(`Rekaman [${id}] dihentikan.`, "success");
         loadBiometricData(regData.userId);
       }
     } catch (err) {
@@ -205,6 +218,27 @@ const SignPadModule = ({ data }) => {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar text-left font-mono">
+     {/* KOMPONEN TOAST GLOBAL */}
+        <AnimatePresence>
+          {toast.show && (
+            <motion.div 
+              initial={{ opacity: 0, x: 50 }} 
+              animate={{ opacity: 1, x: 0 }} 
+              exit={{ opacity: 0, x: 50 }} 
+              className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+                toast.type === 'success' 
+                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+                  : 'bg-rose-500/10 border-rose-500 text-rose-400'
+              }`}
+            >
+              <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+              <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       <div className="flex flex-col lg:flex-row gap-8 items-start shrink-0">
         <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm flex flex-col shadow-2xl min-h-[160px]">
           <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[18px] font-black uppercase z-[50]">Registrasi Data User</div>
@@ -233,12 +267,12 @@ const SignPadModule = ({ data }) => {
             {regData.userId && (
               <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="p-3 bg-[#00ffff]/5 border border-[#00ffff]/10 rounded-sm">
-                  <span className="text-[8px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Nama Lengkap</span>
-                  <span className="text-[12px] text-white font-bold uppercase truncate block">{regData.fullName}</span>
+                  <span className="text-[12px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Nama Lengkap</span>
+                  <span className="text-[16px] text-white font-bold uppercase truncate block">{regData.fullName}</span>
                 </div>
                 <div className="p-3 bg-[#00ffff]/5 border border-[#00ffff]/10 rounded-sm">
-                  <span className="text-[8px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Alamat</span>
-                  <span className="text-[12px] text-zinc-400 italic truncate block">{regData.address || "N/A"}</span>
+                  <span className="text-[12px] text-zinc-500 uppercase font-black block mb-1 tracking-widest">Alamat</span>
+                  <span className="text-[16px] text-white font-bold uppercase truncate block">{regData.address || "N/A"}</span>
                 </div>
               </div>
             )}

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 
   Square, 
@@ -13,7 +14,7 @@ import {
   Activity,
   FileText,
   Camera,
-  Loader2,
+  Loader2, X,
   Settings, CameraIcon,
   Layers, FolderOpen, Search, ShieldCheck
 } from 'lucide-react';
@@ -38,7 +39,9 @@ const DocumentScannerModule = ({ data }) => {
   const autoConnectStarted = useRef(false);
   const isAutoInitializing = useRef(false);
   // const [connections, setConnections] = useState({ cmd: false, main: false });
-
+  
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+    
   const [formData, setFormData] = useState({
     license: "", 
     grabImage: "d:\\scan_result.jpg",
@@ -58,6 +61,12 @@ const DocumentScannerModule = ({ data }) => {
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
   }, [logs]);
+
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
 
   const addLog = (msg, type = "info") => {
     const timestamp = new Date().toLocaleTimeString();
@@ -85,6 +94,7 @@ const checkApiStatus = async () => {
     return;
   }
 
+  showToast("Memeriksa status SDK...", "success");
   addLog("Memeriksa status endpoint API Document SDK...", "info");
   const ports = { cmd: 25014, mc: 9999 };
 
@@ -123,6 +133,8 @@ const checkApiStatus = async () => {
         }
         return newConns;
       });
+
+      showToast(`Server ${type.toUpperCase()} Terhubung`, "success");
 
       addLog(`Status API ${type.toUpperCase()}: Terhubung otomatis.`, "success");
 
@@ -252,7 +264,7 @@ const checkApiStatus = async () => {
       case 8:
       case 107: setDeviceId(data.did || "N/A"); break;
       // case 10: addLog("Kamera berhasil diaktifkan."); break;
-      case 12: addLog("Kamera dimatikan."); break;
+      // case 12: addLog("Kamera dimatikan."); break;
       
       // Respon Ambil Gambar (ID 14)
       case 14: 
@@ -279,9 +291,11 @@ const checkApiStatus = async () => {
       // case 2: addLog(data.error === 0 ? "Inisialisasi Plugin Berhasil" : `Gagal Inisialisasi: Error ${data.error}`); break;
       case 2: // Respon Inisialisasi Plugin[cite: 33]
         if (data.error === 0) {
+          showToast("SDK Document Siap Digunakan", "success");
           addLog("AUTO-INIT BERHASIL: SDK Barcode siap digunakan.", "success");
           setIsLicenseActive(true); // <--- KUNCI UTAMA: Mengaktifkan tombol Enable Camera
         } else {
+          showToast(`Inisialisasi Gagal: Error ${data.error}`, "error");
           addLog(`AUTO-INIT GAGAL: Kode Error ${data.error}`, "error");
           setIsLicenseActive(false);
         }
@@ -289,9 +303,11 @@ const checkApiStatus = async () => {
 
       case 10: // Konfirmasi Kamera Terbuka[cite: 33]
         if (data.error === 0 || data.error === 12) {
+          showToast("Kamera Utama Diaktifkan", "success");
           addLog("Kamera Utama Diaktifkan", "success");
           setIsCameraOpen(true);
         } else if (data.error === 13) {
+          showToast("Perangkat Tidak Terhubung", "info");
           addLog("Scanner is not connected. Please connect the scanner to this computer.", "error"); // Sesuai Source 41
           setIsCameraOpen(false);
         } else {
@@ -299,9 +315,12 @@ const checkApiStatus = async () => {
         }
         break;
 
-      case 12: // Konfirmasi Kamera Tertutup[cite: 33]
-        addLog("Kamera dimatikan.");
-        setIsCameraOpen(false); // <--- Mengaktifkan tombol Enable kembali[cite: 39]
+      case 12: // Callback Status Kamera Tertutup (SDK Event)
+        setIsCameraOpen(false); // <--- KUNCI PERBAIKAN: Reset tombol ke "Start Camera"
+        showToast("Kamera Berhasil Dimatikan", "info");
+        addLog("Kamera Utama Berhasil Dimatikan", "succcess");
+        // Bersihkan layar pratinjau
+        window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: null }));
         break;
 
       default:
@@ -377,6 +396,27 @@ const checkApiStatus = async () => {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+        {/* KOMPONEN TOAST GLOBAL */}
+          <AnimatePresence>
+            {toast.show && (
+              <motion.div 
+                initial={{ opacity: 0, x: 50 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                exit={{ opacity: 0, x: 50 }} 
+                className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+                  toast.type === 'success' 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+                    : 'bg-rose-500/10 border-rose-500 text-rose-400'
+                }`}
+              >
+                <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+                <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+                  <X size={18} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+      
       {/* BARIS ATAS: Status & Kontrol Utama */}
       {/* <div className="flex flex-col lg:flex-row gap-8 items-start shrink-0"> */}
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 shrink-0">

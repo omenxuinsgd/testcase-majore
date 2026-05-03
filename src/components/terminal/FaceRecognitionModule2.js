@@ -27,7 +27,7 @@ import {
 
 /**
  * FaceRecognitionModule
- * Terintegrasi penuh dengan API Backend (Port 5160)
+ * Terintegrasi penuh dengan API Backend (Port 5001)
  * Update: Visualisasi Atribut Wajah (Mask, Gender, Age, Pose, Spoof) dalam kontainer terstruktur.
  */
 const FaceRecognitionModule = ({ data: propsData, activeTab }) => {

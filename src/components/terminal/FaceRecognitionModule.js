@@ -354,7 +354,7 @@ const FaceRecognitionModule = ({ activeTab }) => {
             ))}
           </select>
           {userData.userId && (
-            <div className="text-[8px] text-emerald-400 font-bold tracking-widest uppercase animate-pulse">
+            <div className="text-[12px] text-emerald-400 font-bold tracking-widest uppercase animate-pulse">
               Sesi Aktif: {userData.name} (UID_{userData.userId})
             </div>
           )}
@@ -407,7 +407,7 @@ const FaceRecognitionModule = ({ activeTab }) => {
           <div className="flex-1 border-2 border-[#00ffff]/20 bg-zinc-950/60 rounded-sm overflow-hidden flex flex-col relative">
             <div className="bg-[#00ffff]/10 px-4 py-2 border-b border-[#00ffff]/20 flex justify-between items-center shrink-0">
                <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-widest">
-                 {activeTab === 'face_enrollment' ? 'BIOMETRIC_DATA_VAULT' : 'VERIFICATION_TERMINAL'}
+                 {activeTab === 'face_enrollment' ? 'DATA_PERSONEL' : 'VERIFICATION_TERMINAL'}
                </span>
                {/* <div className="px-2 py-0.5 bg-black/40 border border-[#00ffff]/20 text-[8px] text-[#00ffff] font-black">
                  SISTEM: {statusMsg.toUpperCase()}
@@ -422,20 +422,25 @@ const FaceRecognitionModule = ({ activeTab }) => {
                     <span className="text-[10px] uppercase tracking-widest text-[#00ffff]">Menarik Data...</span>
                   </div>
                 ) : biometricRecords.length > 0 ? (
-                  <table className="w-full text-[10px] border-collapse">
+                  <table className="w-full text-[14px] border-collapse">
                     <thead className="bg-black/60 sticky top-0 text-[#00ffff] uppercase font-bold border-b border-[#00ffff]/10">
                       <tr>
                         <th className="p-3 text-left">UID</th>
+                        <th className="p-3 text-left">Nama Personel</th> {/* TAMBAHKAN KOLOM NAMA */}
                         <th className="p-3 text-left">Citra Biometrik</th>
                         <th className="p-3 text-right">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="text-zinc-300">
+                    <tbody className="text-zinc-300 text-[16px]">
                       {biometricRecords.map((record, idx) => (
                         <tr key={idx} className="border-b border-[#00ffff]/5 hover:bg-[#00ffff]/5 transition-colors">
                           <td className="p-3 font-mono font-bold text-white">{record.UserID}</td>
+                          {/* KOLOM NAMA BARU */}
+                          <td className="p-3 font-bold uppercase text-emerald-400">
+                            {userData.name || "Unknown"} 
+                          </td>
                           <td className="p-3">
-                            <div className="w-12 h-12 bg-black border border-white/10 rounded-sm overflow-hidden group">
+                            <div className="w-18 h-18 bg-black border border-white/10 rounded-sm overflow-hidden group">
                                <img 
                                  src={`data:image/jpeg;base64,${record.Image}`} 
                                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
@@ -469,19 +474,19 @@ const FaceRecognitionModule = ({ activeTab }) => {
                         </div>
                         <div className="grid grid-cols-2 gap-12 relative z-10">
                            <div className="flex flex-col gap-1">
-                              <span className="text-[8px] text-zinc-500 uppercase font-black">Subject_Identity</span>
-                              <span className="text-2xl font-black text-white truncate drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{matchResult.name}</span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">Nama Lengkap</span>
+                              <span className="text-[18px] font-mono font-bold uppercase text-white truncate drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{matchResult.name}</span>
                            </div>
                            <div className="flex flex-col gap-1">
-                              <span className="text-[8px] text-zinc-500 uppercase font-black">Authorization</span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">Authorization</span>
                               <div className="flex items-center gap-2 text-emerald-400">
                                 <ShieldCheck size={16} className="animate-pulse" />
                                 <span className="text-xl font-black uppercase tracking-tighter">{matchResult.status}</span>
                               </div>
                            </div>
                            <div className="flex flex-col gap-1">
-                              <span className="text-[8px] text-zinc-500 uppercase font-black">Subject_UID</span>
-                              <span className="text-[12px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-3 py-1 w-fit border border-[#00ffff]/20 rounded-sm font-mono">{matchResult.userId}</span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">User ID</span>
+                              <span className="text-[18px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-3 py-1 w-fit border border-[#00ffff]/20 rounded-sm font-mono">{matchResult.userId}</span>
                            </div>
                         </div>
                      </div>
@@ -496,24 +501,24 @@ const FaceRecognitionModule = ({ activeTab }) => {
                      <div className="p-5 border-2 border-[#00ffff]/30 bg-black/40 rounded-sm flex flex-col gap-4 animate-in fade-in duration-700">
                         <div className="flex items-center gap-2 text-[#00ffff] border-b border-[#00ffff]/10 pb-2">
                            <Dna size={14} />
-                           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Live_Attributes_Analysis</span>
+                           <span className="text-[18px] font-black uppercase tracking-[0.2em]">Atribut Analisis</span>
                         </div>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
                            <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[7px] text-zinc-500 uppercase font-black">Mask</span>
-                              <span className={`text-[11px] font-black uppercase mt-1 ${faceAttributes.Mask === 'No Mask' ? 'text-emerald-400' : 'text-yellow-400'}`}>{faceAttributes.Mask}</span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">Mask</span>
+                              <span className={`text-[18px] font-black uppercase mt-1 ${faceAttributes.Mask === 'No Mask' ? 'text-emerald-400' : 'text-yellow-400'}`}>{faceAttributes.Mask}</span>
                            </div>
                            <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[7px] text-zinc-500 uppercase font-black">Gender</span>
-                              <span className="text-[11px] font-black uppercase text-white mt-1">{faceAttributes.Gender}</span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">Gender</span>
+                              <span className="text-[18px] font-black uppercase text-white mt-1">{faceAttributes.Gender}</span>
                            </div>
                            <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[7px] text-zinc-500 uppercase font-black">Age</span>
-                              <span className="text-[14px] font-black text-[#00ffff] mt-1">{faceAttributes.Age} <span className="text-[8px] font-normal text-zinc-500">Yrs</span></span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">Age</span>
+                              <span className="text-[18px] font-black text-[#00ffff] mt-1">{faceAttributes.Age} <span className="text-[18px] font-normal text-zinc-500">Yrs</span></span>
                            </div>
                            <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[7px] text-zinc-500 uppercase font-black">Spoof</span>
-                              <span className={`text-[11px] font-black uppercase mt-1 ${faceAttributes.Spoof === 'Real' ? 'text-emerald-400' : 'text-rose-500'}`}>{faceAttributes.Spoof}</span>
+                              <span className="text-[14px] text-zinc-500 uppercase font-black">Spoof</span>
+                              <span className={`text-[18px] font-black uppercase mt-1 ${faceAttributes.Spoof === 'Real' ? 'text-emerald-400' : 'text-rose-500'}`}>{faceAttributes.Spoof}</span>
                            </div>
                         </div>
                      </div>

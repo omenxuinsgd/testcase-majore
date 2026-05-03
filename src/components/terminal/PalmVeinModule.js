@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { 
   Activity, Camera, Eye, Zap, FileJson, Trash2, Loader2, ShieldCheck,
   Hand, ShieldAlert, Database, CheckCircle2, XCircle, UserCheck,
-  MapPin, Fingerprint, Play, Square, User, Search
+  MapPin, Fingerprint, Play, Square, X, User, Search
 } from 'lucide-react';
 
 /**
@@ -32,8 +33,16 @@ const PalmVeinModule = ({ activeTab }) => {
   const previewIntervalRef = useRef(null);
   const isScanningRef = useRef(false);
 
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
   // State User yang dipilih untuk Enrollment
   const [userData, setUserData] = useState({ userId: "", name: "" });
+
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
 
   useEffect(() => {
     isScanningRef.current = isScanning;
@@ -185,18 +194,38 @@ const PalmVeinModule = ({ activeTab }) => {
     }
   };
 
+  // const startPalmProtocol = async () => {
+  //   setIsScanning(true);
+  //   setEnrollResult(null);
+  //   setMatchResult(null);
+  //   try {
+  //     const res = await fetch(`${baseUrl}/api/palm/start-palm`);
+  //     const text = await res.text();
+  //     setStatusMsg(text);
+  //     startPreview();
+  //     addLog(`Sensor Aktif: ${text}`);
+  //     window.dispatchEvent(new CustomEvent('palm:scanning-state', { detail: true }));
+  //   } catch (err) { addLog("Gagal memulakan sensor."); }
+  // };
+  
   const startPalmProtocol = async () => {
-    setIsScanning(true);
+    setIsScanning(true); // Pindah ke baris pertama untuk respon UI instan
     setEnrollResult(null);
     setMatchResult(null);
+    showToast("Memulai Inisialisasi Sensor...", "success"); // Feedback awal
     try {
       const res = await fetch(`${baseUrl}/api/palm/start-palm`);
       const text = await res.text();
       setStatusMsg(text);
       startPreview();
-      addLog(`Sensor Aktif: ${text}`);
+      showToast("Kamera Palm Vein Aktif", "success");
+      addLog(`Sensor Aktif: ${text}`, "success");
       window.dispatchEvent(new CustomEvent('palm:scanning-state', { detail: true }));
-    } catch (err) { addLog("Gagal memulakan sensor."); }
+    } catch (err) { 
+      setIsScanning(false); // Reset jika gagal
+      showToast("Gagal mangaktifkan kamera.", "error"); 
+      addLog("Gagal mangaktifkan kamera.", "error"); 
+    }
   };
 
   const finishPalmProtocol = async () => {
@@ -220,6 +249,7 @@ const PalmVeinModule = ({ activeTab }) => {
     if (!rgbCanvasRef.current) return;
     setIsProcessing(true);
     setEnrollResult(null);
+    showToast(`Mendaftarkan Palm Vein: ${userData.name}`, "success");
     addLog(`Memproses pendaftaran untuk: ${userData.name}...`);
     try {
       await fetch(`${baseUrl}/api/palm/capture-frame`);
@@ -234,29 +264,32 @@ const PalmVeinModule = ({ activeTab }) => {
         setEnrollResult({ 
             type: 'SUCCESS', 
             status: 'COMPLETED', 
-            message: `Subjek ${userData.name} berjaya didaftarkan.`, 
+            message: `Data ${userData.name} didaftarkan.`, 
             userId: userData.userId, 
             timestamp: new Date().toLocaleString(), 
             db_sync: 'AUTHORIZED' 
         });
         loadBiometricData(userData.userId);
+        showToast("Pendaftaran Berhasil Disimpan", "success");
       }
     } catch (err) { addLog("Ralat pendaftaran."); } finally { setIsProcessing(false); }
   };
 
   const handleIdentificationAction = async () => {
     if (!isScanningRef.current) {
-      addLog("Gagal: Sila aktifkan sensor terlebih dahulu.", "error");
+      addLog("Gagal: Silahkan aktifkan sensor terlebih dahulu.", "error");
       return;
     }
     setIsProcessing(true);
     setMatchResult(null);
-    addLog("Memulakan pemadanan pola vena...");
+    showToast("Memindai Pola Vena...", "success");
+    addLog("Mulai pemindaian palm vein...");
 
     try {
       const res = await fetch(`${baseUrl}/api/palm/Palm_match`);
       if (!res.ok) {
-        addLog("[INFO] Tiada padanan ditemui.");
+        showToast("[INFO] Tidak Ada Data Yang Match", "info");
+        addLog("[INFO] Tidak Ada Data Yang Match", "info");
         setIsProcessing(false);
         return;
       }
@@ -276,8 +309,9 @@ const PalmVeinModule = ({ activeTab }) => {
         status: "AUTHORIZED",
         timestamp: new Date().toLocaleString()
       });
-
-      addLog(`[AUTH] Berjaya mengenal pasti: ${json.name || json.Name}`);
+      
+      showToast(`[AUTH] Data Match: ${json.name || json.Name}`);
+      addLog(`[AUTH] Data Match: ${json.name || json.Name}`);
     } catch (err) { addLog("Ralat proses identifikasi."); } finally { setIsProcessing(false); }
   };
 
@@ -297,8 +331,27 @@ const PalmVeinModule = ({ activeTab }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-4 p-4 overflow-hidden bg-black/40 font-mono text-left">
-        
+    <div className="flex-1 flex flex-col gap-4 p-1.5 overflow-hidden bg-black/40 font-mono text-left">
+        {/* KOMPONEN TOAST GLOBAL */}
+    <AnimatePresence>
+      {toast.show && (
+        <motion.div 
+          initial={{ opacity: 0, x: 50 }} 
+          animate={{ opacity: 1, x: 0 }} 
+          exit={{ opacity: 0, x: 50 }} 
+          className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+              : 'bg-rose-500/10 border-rose-500 text-rose-400'
+          }`}
+        >
+          <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+          <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
            {/* HEADER SELECTBOX (Khusus Enrollment) */}
            {(activeTab === 'enrollment' || activeTab === 'data') && (
         <div className="bg-zinc-900/80 p-4 border-2 border-[#00ffff]/30 rounded-sm flex flex-col gap-2">
@@ -364,18 +417,31 @@ const PalmVeinModule = ({ activeTab }) => {
               </button>
 
               {activeTab === 'enrollment' ? (
+                // <button 
+                //   onClick={handleEnrollAction} 
+                //   disabled={!isScanning || isProcessing || !userData.userId}
+                //   className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase rounded-sm border-2 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 disabled:grayscale">
+                //   <UserCheck size={18} /> Jalankan Enrollment
+                // </button>
+
                 <button 
                   onClick={handleEnrollAction} 
+                  // PERBAIKAN: Pastikan dependensi hanya pada isScanning, isProcessing, dan ketersediaan User
                   disabled={!isScanning || isProcessing || !userData.userId}
-                  className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase rounded-sm border-2 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 disabled:grayscale">
+                  className={`col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase rounded-sm border-2 transition-all ${
+                    isScanning && !isProcessing && userData.userId
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white' 
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-600 cursor-not-allowed opacity-30'
+                  }`}
+                >
                   <UserCheck size={18} /> Jalankan Enrollment
                 </button>
               ) : (
                 <button 
                   onClick={handleIdentificationAction} 
                   disabled={!isScanning || isProcessing}
-                  className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase rounded-sm border-2 bg-purple-500/20 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white disabled:opacity-30">
-                  <Fingerprint size={14} /> Jalankan Match Identitas
+                  className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase rounded-sm border-2 bg-purple-500/20 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white disabled:opacity-30">
+                  <Fingerprint size={18} /> Jalankan Verifikasi
                 </button>
               )}
            </div>
@@ -401,28 +467,28 @@ const PalmVeinModule = ({ activeTab }) => {
                                  <span className="text-[11px] font-black text-white uppercase tracking-[0.3em]">Processing_Identification...</span>
                               </div>
                             ) : enrollResult ? (
-                              <div className={`p-6 border-2 rounded-sm animate-in fade-in slide-in-from-left duration-500 flex flex-col gap-6 relative overflow-hidden group ${enrollResult.type === 'SUCCESS' ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-rose-500/40 bg-rose-500/5'}`}>
+                              <div className={`p-2.5 border-2 rounded-sm animate-in fade-in slide-in-from-left duration-500 flex flex-col gap-6 relative overflow-hidden group ${enrollResult.type === 'SUCCESS' ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-rose-500/40 bg-rose-500/5'}`}>
                                  <div className="absolute top-0 right-0 p-4 opacity-10">{enrollResult.type === 'SUCCESS' ? <ShieldCheck size={80} className="text-emerald-400" /> : <ShieldAlert size={80} className="text-rose-400" />}</div>
-                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 relative z-10">
-                                   <div className="flex flex-col gap-1"><span className="text-[8px] text-zinc-500 uppercase font-black">Status_Pendaftaran</span><span className={`text-xl font-black uppercase ${enrollResult.type === 'SUCCESS' ? 'text-emerald-400' : 'text-rose-400'}`}>{enrollResult.status}</span></div>
-                                   <div className="flex flex-col gap-1"><span className="text-[8px] text-zinc-500 uppercase font-black">Subject_UID</span><span className="text-[12px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-3 py-1 w-fit border border-[#00ffff]/20 rounded-sm">{enrollResult.userId}</span></div>
-                                   <div className="col-span-2 flex flex-col gap-1"><span className="text-[8px] text-zinc-500 uppercase font-black">Sistem_Mesej</span><span className="text-[10px] text-zinc-300 italic">{enrollResult.message}</span></div>
+                                 <div className="grid grid-cols-2 gap-x-12 gap-y-3 relative z-10">
+                                   <div className="flex flex-col gap-1"><span className="text-[14px] text-zinc-500 uppercase font-black">Status_Pendaftaran</span><span className={`text-xl font-black uppercase ${enrollResult.type === 'SUCCESS' ? 'text-emerald-400' : 'text-rose-400'}`}>{enrollResult.status}</span></div>
+                                   <div className="flex flex-col gap-1"><span className="text-[14px] text-zinc-500 uppercase font-black">Subject_UID</span><span className="text-[16px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-3 py-1 w-fit border border-[#00ffff]/20 rounded-sm">{enrollResult.userId}</span></div>
+                                   <div className="col-span-2 flex flex-col gap-1"><span className="text-[14px] text-zinc-500 uppercase font-black">Nama Pendaftar</span><span className="text-[14px] text-zinc-300 italic">{enrollResult.message}</span></div>
                                  </div>
-                                 <div className="mt-2 pt-3 border-t border-[#00ffff]/10 text-[8px] text-zinc-600 font-bold uppercase tracking-wider">{enrollResult.timestamp}</div>
+                                 <div className="pt-1 border-t border-[#00ffff]/10 text-[14px] text-zinc-600 font-bold uppercase tracking-wider">{enrollResult.timestamp}</div>
                               </div>
                             ) : matchResult ? (
                               <div className="p-5 border-2 border-emerald-500/40 bg-emerald-500/5 rounded-sm animate-in fade-in slide-in-from-left duration-500 flex flex-col lg:flex-row gap-6 relative overflow-hidden group">
                                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none"><Hand size={120} className="text-emerald-400" /></div>
                                  <div className="w-24 h-24 lg:w-32 lg:h-32 border-2 border-[#00ffff]/30 bg-black rounded-sm overflow-hidden shrink-0 relative z-10 shadow-lg"><canvas ref={resultCanvasRef} className="w-full h-full object-cover" /></div>
                                  <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4 relative z-10">
-                                   <div className="flex flex-col gap-0.5"><span className="text-[7px] text-zinc-500 uppercase font-black tracking-widest">Identiti_Padanan</span><span className="text-xl font-black text-white truncate">{matchResult.name}</span></div>
-                                   <div className="flex flex-col gap-0.5"><span className="text-[7px] text-zinc-500 uppercase font-black tracking-widest">Status</span><div className="flex items-center gap-1.5 text-emerald-400"><UserCheck size={14} /><span className="text-lg font-black uppercase">{matchResult.status}</span></div></div>
-                                   <div className="flex flex-col gap-0.5"><span className="text-[7px] text-zinc-500 uppercase font-black tracking-widest">UserID_Token</span><span className="text-[11px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-2 py-0.5 w-fit border border-[#00ffff]/20 rounded-sm font-mono">{matchResult.userId}</span></div>
-                                   <div className="flex flex-col gap-0.5"><span className="text-[7px] text-zinc-500 uppercase font-black tracking-widest">Alamat</span><span className="text-[10px] text-zinc-400 italic truncate max-w-[200px]">{matchResult.address}</span></div>
+                                   <div className="flex flex-col"><span className="text-[16px] text-zinc-500 uppercase font-black tracking-widest">Nama</span><span className="text-[24px] font-black uppercase text-white truncate">{matchResult.name}</span></div>
+                                   <div className="flex flex-col gap-0.5"><span className="text-[16px] text-zinc-500 uppercase font-black tracking-widest">Status</span><div className="flex items-center gap-1.5 text-emerald-400"><UserCheck size={20} /><span className="text-lg font-black uppercase">{matchResult.status}</span></div></div>
+                                   <div className="flex flex-col gap-0.5"><span className="text-[16px] text-zinc-500 uppercase font-black tracking-widest">UserID</span><span className="text-[24px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-2 py-0.5 w-fit border border-[#00ffff]/20 rounded-sm font-mono">{matchResult.userId}</span></div>
+                                   <div className="flex flex-col gap-0.5"><span className="text-[16px] text-zinc-500 uppercase font-black tracking-widest">Alamat</span><span className="text-[24px] text-zinc-400 italic truncate max-w-[200px]">{matchResult.address}</span></div>
                                  </div>
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center justify-center py-20 text-zinc-800 gap-4"><Database size={64} strokeWidth={1} className="opacity-20" /><div className="flex flex-col items-center gap-1 opacity-40"><span className="text-[11px] font-black uppercase tracking-[0.5em]">Awaiting_Extraction</span><span className="text-[8px] uppercase tracking-widest">Aktifkan Sensor Untuk {activeTab === 'enrollment' ? 'Pendaftaran' : 'Identifikasi'}</span></div></div>
+                              <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-4"><Database size={64} strokeWidth={1} className="opacity-20" /><div className="flex flex-col items-center gap-1 opacity-40"><span className="text-[14px] font-black uppercase tracking-[0.5em]">Menunggu Pengambilan Data</span><span className="text-[14px] uppercase tracking-widest">Aktifkan Sensor Untuk {activeTab === 'enrollment' ? 'Pendaftaran' : 'Identifikasi'}</span></div></div>
                             )}
                          </div>
                       </div>
@@ -438,23 +504,23 @@ const PalmVeinModule = ({ activeTab }) => {
             <div className="bg-[#00ffff]/5 px-5 py-4 border-b-[3px] border-[#00ffff]/20 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <FileJson size={18} className="text-[#00ffff]" />
-                <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-[0.3em]">Brankas Identitas</span>
+                <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-[0.3em]">Data Personil</span>
               </div>
               {userData.userId && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-3 py-1 border border-emerald-400/30 rounded-full">Viewing: {userData.name}</span>}
             </div>
             
             <div className="overflow-auto flex-1 bg-zinc-950/40 custom-scrollbar">
               {!userData.userId ? (
-                <div className="h-full flex flex-col items-center justify-center text-zinc-700 gap-4">
+                <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-4">
                   <Search size={48} strokeWidth={1} />
-                  <p className="text-[10px] uppercase tracking-widest">Silakan pilih personel di atas</p>
+                  <p className="text-[16px] uppercase tracking-widest">Silakan pilih personel di atas</p>
                 </div>
               ) : isProcessing ? (
                 <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-[#00ffff]" /></div>
               ) : biometricData.length > 0 ? (
                 <table className="w-full text-left font-mono border-collapse min-w-[900px]">
                   <thead>
-                    <tr className="bg-[#00ffff]/10 text-[10px] text-white font-black uppercase sticky top-0 z-10 border-b-2 border-[#00ffff]/20">
+                    <tr className="bg-[#00ffff]/10 text-[16px] text-white font-black uppercase sticky top-0 z-10 border-b-2 border-[#00ffff]/20">
                       <th className="p-4">UserID</th>
                       <th className="p-4">Nama Penuh</th>
                       <th className="p-4">Alamat</th>
@@ -465,17 +531,17 @@ const PalmVeinModule = ({ activeTab }) => {
                   </thead>
                   <tbody className="text-white">
                     {biometricData.map((item, idx) => (
-                      <tr key={idx} className="text-[10px] border-b border-[#00ffff]/10 hover:bg-[#00ffff]/5 transition-all">
+                      <tr key={idx} className="text-[18px] border-b border-[#00ffff]/10 hover:bg-[#00ffff]/5 transition-all">
                         <td className="p-4 text-[#00ffff] font-black">{item.UserID || item.userId}</td>
                         <td className="p-4 font-bold uppercase">{item.Name || item.name}</td>
                         <td className="p-4 text-zinc-500 italic">{item.Address || item.address}</td>
                         <td className="p-4 text-center">
-                          <div className="w-12 h-12 mx-auto border border-purple-500/40 overflow-hidden bg-black shadow-sm">
+                          <div className="w-18 h-18 mx-auto border border-purple-500/40 overflow-hidden bg-black shadow-sm">
                             <img src={`data:image/jpeg;base64,${item.Image_ir}`} className="w-full h-full object-cover grayscale" alt="IR" />
                           </div>
                         </td>
                         <td className="p-4 text-center">
-                          <div className="w-12 h-12 mx-auto border border-[#00ffff]/40 overflow-hidden bg-black shadow-sm">
+                          <div className="w-18 h-18 mx-auto border border-[#00ffff]/40 overflow-hidden bg-black shadow-sm">
                             <img src={`data:image/jpeg;base64,${item.Image_rgb}`} className="w-full h-full object-cover" alt="RGB" />
                           </div>
                         </td>
@@ -489,9 +555,9 @@ const PalmVeinModule = ({ activeTab }) => {
                   </tbody>
                 </table>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-zinc-700 gap-4">
-                  <Database size={48} strokeWidth={1} />
-                  <p className="text-[10px] uppercase tracking-widest italic">Belum ada record biometrik untuk {userData.name}</p>
+                <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-4">
+                  <Database size={72} strokeWidth={1} />
+                  <p className="text-[18px] uppercase tracking-widest italic">Belum ada record biometrik untuk {userData.name}</p>
                 </div>
               )}
             </div>
