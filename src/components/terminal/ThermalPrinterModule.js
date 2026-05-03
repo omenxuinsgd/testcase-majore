@@ -89,8 +89,8 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
         </div> */}
 
         {/* CONFIGURATION FORM */}
-        <div className="flex-1 h-[220px] border-2 border-[#00ffff]/40 bg-zinc-900/60 pt-7 px-6 pb-12 relative font-mono rounded-sm group flex flex-col justify-start gap-4 overflow-visible">
-          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[14px] font-black uppercase z-[50]">
+        <div className="flex-1 h-[250px] border-2 border-[#00ffff]/40 bg-zinc-900/60 pt-7 px-6 pb-12 relative font-mono rounded-sm group flex flex-col justify-start gap-4 overflow-visible">
+          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[18px] font-black uppercase z-[50]">
             {activeTab === 'text_barcode' ? 'Printing' : 'Quick Actions'}
           </div>
           
@@ -98,11 +98,11 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
             <>
               <div className="grid grid-cols-2 gap-6 text-left">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] text-[#00ffff] font-black uppercase tracking-widest block">Select Format</label>
+                  <label className="text-[16px] text-white font-black uppercase tracking-widest block">Select Format</label>
                   <select 
                     value={format}
                     onChange={(e) => setFormat(e.target.value)}
-                    className="w-full bg-black border-2 border-[#00ffff]/20 text-[12px] p-2 text-white outline-none focus:border-[#00ffff] font-moono cursor-pointer"
+                    className="w-full bg-black border-2 border-[#00ffff]/20 text-[16px] p-2 text-[#00ffff] outline-none focus:border-[#00ffff] font-moono cursor-pointer"
                   >
                     <option value="text">Text Standard</option>
                     <option value="barcode">Barcode 1D</option>
@@ -110,13 +110,13 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[11px] text-[#00ffff] font-black uppercase tracking-widest block">Payload Data</label>
+                  <label className="text-[16px] text-white font-black uppercase tracking-widest block">Payload Data</label>
                   <input 
                     value={printText}
                     onFocus={() => setActiveInput('text')}
                     onChange={(e) => setPrintText(e.target.value)}
                     placeholder="Masukkan data..." 
-                    className="w-full bg-black border-2 border-[#00ffff]/20 p-1.5 text-[#00ffff] outline-none font-mono text-[13px] focus:border-[#00ffff] transition-colors" 
+                    className="w-full bg-black border-2 border-[#00ffff]/20 p-1.5 text-[#00ffff] outline-none font-mono text-[16px] focus:border-[#00ffff] transition-colors" 
                   />
                 </div>
               </div>
@@ -124,27 +124,27 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
                 <button 
                   disabled={isLoading}
                   onClick={handlePrintSubmit} 
-                  className="flex-1 py-1.5 bg-zinc-950 border-2 border-[#00ffff] text-[#00ffff] text-[14px] font-black hover:bg-[#00ffff] hover:text-black uppercase active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 bg-zinc-950 border-3 border-[#00ffff]/30 text-[#00ffff] text-[16px] hover:border-[#00ffff] active:scale-95 uppercase font-black shadow-lg flex items-center justify-center gap-4"
                 >
-                  {isLoading ? <Loader2 size={12} className="animate-spin" /> : <PrinterIcon size={16} />}
+                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <PrinterIcon size={18} />}
                   {isLoading ? 'Processing...' : 'Execute Print'}
                 </button>
               </div>
               <div className="flex gap-4">
                <button 
                  onClick={() => handleAction('/api/printer/print-sample')}
-                 className="flex-1 py-2.5 bg-zinc-950 border-3 border-[#00ffff]/30 text-[#00ffff] text-[14px] hover:border-[#00ffff] active:scale-95 uppercase font-black shadow-lg flex items-center justify-center gap-4"
+                 className="flex-1 py-2.5 bg-zinc-950 border-3 border-[#00ffff]/30 text-[#00ffff] text-[16px] hover:border-[#00ffff] active:scale-95 uppercase font-black shadow-lg flex items-center justify-center gap-4"
                >
                  {isLoading ? <Loader2 size={12} className="animate-spin" /> : <PrinterIcon size={18} />}
-                  {isLoading ? 'Processing...' : 'Print Sample 1'}
+                  {isLoading ? 'Processing...' : 'Print Sample'}
                </button>
-               <button 
+               {/* <button 
                  onClick={() => handleAction('/api/test/test-person')}
                  className="flex-1 py-2.5 bg-zinc-950 border-3 border-[#ff00ff]/30 text-[#ff00ff] text-[14px] hover:border-[#ff00ff] active:scale-95 uppercase font-black shadow-lg flex items-center justify-center gap-4"
                >
                  {isLoading ? <Loader2 size={12} className="animate-spin" /> : <PrinterIcon size={18} />}
                   {isLoading ? 'Processing...' : 'Print Sample 2'}
-               </button>
+               </button> */}
             </div>
             </>
           ) : (
@@ -186,8 +186,8 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
         </div> */}
 
         <div className="border-2 border-[#00ffff]/20 bg-black/90 pl-6 p-3 flex flex-col rounded-sm relative overflow-hidden shadow-inner text-left font-mono text-[12px] text-zinc-400">
-          <div className="text-[14px] text-[#00ffff] font-black mb-2 uppercase flex items-center gap-2 border-b border-[#00ffff]/10 pb-1 tracking-widest">
-             <Activity size={10} className="animate-pulse" />
+          <div className="text-[18px] text-[#00ffff] font-black mb-2 uppercase flex items-center gap-2 border-b border-[#00ffff]/10 pb-1 tracking-widest">
+             <Activity size={18} className="animate-pulse" />
              <span>Logs Output</span>
           </div>
           <div className="flex-1 p-2 overflow-y-auto space-y-1 custom-scrollbar min-h-[120px]">

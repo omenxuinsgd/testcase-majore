@@ -155,14 +155,53 @@ const TerminalView = (props) => {
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
   };
 
+  // const getCoords = (e) => {
+  //   if (!canvasRef.current) return { x: 0, y: 0 };
+  //   const rect = canvasRef.current.getBoundingClientRect();
+  //   const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+  //   const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+  //   return {
+  //     x: (clientX - rect.left) * (canvasRef.current.width / rect.width),
+  //     y: (clientY - rect.top) * (canvasRef.current.height / rect.height)
+  //   };
+  // };
+
   const getCoords = (e) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    
+    // 1. Hitung posisi relatif kursor di dalam bounding box (0 sampai 1)
+    let relX = (clientX - rect.left) / rect.width;
+    let relY = (clientY - rect.top) / rect.height;
+
+    // 2. Koreksi posisi berdasarkan derajat rotasi shell
+    // Logika: Jika diputar 180, maka posisi klik (relX, relY) adalah kebalikannya (1-relX, 1-relY)
+    let finalRelX, finalRelY;
+
+    switch (terminalRotation) {
+      case 90:
+        finalRelX = relY;
+        finalRelY = 1 - relX;
+        break;
+      case 180:
+        finalRelX = 1 - relX;
+        finalRelY = 1 - relY;
+        break;
+      case 270:
+        finalRelX = 1 - relY;
+        finalRelY = relX;
+        break;
+      default: // 0 derajat
+        finalRelX = relX;
+        finalRelY = relY;
+    }
+
+    // 3. Kalikan dengan ukuran asli canvas (width/height atribut HTML)
     return {
-      x: (clientX - rect.left) * (canvasRef.current.width / rect.width),
-      y: (clientY - rect.top) * (canvasRef.current.height / rect.height)
+      x: finalRelX * canvasRef.current.width,
+      y: finalRelY * canvasRef.current.height
     };
   };
 
@@ -193,10 +232,42 @@ const TerminalView = (props) => {
     ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
   };
 
+  // const saveSignature = () => {
+  //   if (!isSignPadReady || !canvasRef.current) return;
+  //   const dataUrl = canvasRef.current.toDataURL("image/png");
+  //   window.dispatchEvent(new CustomEvent('signpad:capture-complete', { detail: dataUrl }));
+  // };
+
   const saveSignature = () => {
     if (!isSignPadReady || !canvasRef.current) return;
-    const dataUrl = canvasRef.current.toDataURL("image/png");
-    window.dispatchEvent(new CustomEvent('signpad:capture-complete', { detail: dataUrl }));
+
+    const originalCanvas = canvasRef.current;
+    
+    // Jika rotasi shell adalah 180, kita harus memutar balik gambarnya sebelum disimpan
+    if (terminalRotation === 180) {
+      // 1. Buat kanvas sementara dengan ukuran yang sama
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = originalCanvas.width;
+      tempCanvas.height = originalCanvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      // 2. Terapkan transformasi rotasi 180 derajat pada kanvas sementara
+      tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
+      tempCtx.rotate(Math.PI); // Putar 180 derajat (PI radian)
+      
+      // 3. Gambar isi kanvas asli ke kanvas sementara (posisi disesuaikan karena translate tadi)
+      tempCtx.drawImage(originalCanvas, -originalCanvas.width / 2, -originalCanvas.height / 2);
+
+      // 4. Ambil data URL dari kanvas yang sudah dikoreksi posisinya
+      const correctedDataUrl = tempCanvas.toDataURL("image/png");
+      window.dispatchEvent(new CustomEvent('signpad:capture-complete', { detail: correctedDataUrl }));
+      addLog("TANDA_TANGAN_DISIMPAN: KOREKSI_ROTASI_180°_BERHASIL");
+    } else {
+      // Jika rotasi 0 (atau posisi normal), simpan seperti biasa
+      const dataUrl = originalCanvas.toDataURL("image/png");
+      window.dispatchEvent(new CustomEvent('signpad:capture-complete', { detail: dataUrl }));
+      addLog("TANDA_TANGAN_DISIMPAN: POSISI_NORMAL");
+    }
   };
 
   const sendPalmCommand = (command) => {
@@ -209,9 +280,9 @@ const TerminalView = (props) => {
       {/* Tombol Rotasi Shell Seluruhnya */}
       <button 
         onClick={toggleFullRotation}
-        className="flex items-center gap-2 px-4 py-2.5 border-2 border-orange-500 bg-orange-500/20 text-orange-400 font-black text-[10px] uppercase rounded-sm hover:bg-orange-500 hover:text-white transition-all shadow-lg"
+        className="flex items-center gap-2 px-4 py-2.5 border-2 border-pink-500 bg-orange-500/20 text-green-400 font-mono font-bold text-[18px] uppercase rounded-sm hover:bg-orange-500 hover:text-white transition-all shadow-lg"
       >
-        <RotateCcw size={14} /> SHELL_{terminalRotation}°
+        <RotateCcw size={18} /> Putar_{terminalRotation}°
       </button>
 
       {/* <button disabled={!isSignPadReady} onClick={saveSignature} className="flex items-center gap-2 px-5 py-2.5 border-2 border-[#00ffff]/60 bg-[#00ffff]/20 text-[#00ffff] font-black text-[10px] uppercase rounded-sm shadow-2xl hover:bg-[#00ffff] hover:text-black">
@@ -291,7 +362,7 @@ const TerminalView = (props) => {
         )}
 
         <div className="absolute top-0 left-0 w-full h-1 bg-[#00ffff]/50 animate-pulse z-20" />
-        <div className={`absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 border border-[#00ffff]/20 text-[8px] font-black uppercase z-30 ${isLiveStream ? 'text-emerald-400' : 'text-[#00ffff]'}`}>
+        <div className={`absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 border border-[#00ffff]/20 text-[14px] font-black uppercase z-30 ${isLiveStream ? 'text-emerald-400' : 'text-[#00ffff]'}`}>
           {isLiveStream ? 'LIVE_SENSOR_FEED' : 'Visual_Output_Buffer'}
         </div>
       </div>
@@ -302,13 +373,13 @@ const TerminalView = (props) => {
       </div>
 
       {/* Path Navigation (Breadcrumbs) */}
-      <div className="flex h-8 w-fit font-mono text-[9px] uppercase tracking-tighter items-stretch mb-6 shrink-0 font-black">
+      {/* <div className="flex h-8 w-fit font-mono text-[9px] uppercase tracking-tighter items-stretch mb-6 shrink-0 font-black">
           <div className="flex items-center px-4 pr-8 bg-[#178282] text-white path-arrow-start shadow-lg"><Home size={14} strokeWidth={2.5} /></div>
           <div className="flex items-center pl-9 pr-10 bg-[#082e2e] text-[#00ffff]/90 relative -ml-[18px] path-arrow-end border-y border-[#00ffff]/10 border-r border-[#00ffff]/20">
             <FolderOpen size={14} className="mr-2 opacity-60" />
-            <span className='text-[12px]'>{shortTitle.toLowerCase()}</span>
+            <span className='text-[14px]'>{shortTitle.toLowerCase()}</span>
           </div>
-      </div>
+      </div> */}
 
       {/* TAMPILAN KHUSUS PALM VEIN DI SIDEBAR */}
 
@@ -334,17 +405,17 @@ const TerminalView = (props) => {
       </div> */}
 
       {/* DEVICE CONSOLE OUTPUT (Scrollable with Fixed Max Height) */}
-            <div className="w-full border-2 border-[#00ffff]/40 bg-zinc-950 rounded-sm relative overflow-hidden flex flex-col md:min-h-[10px] max-h-[300px] shadow-2xl flex-1">
-               {(isDocScanner || isPassportScanner || isFaceRecognition || isSignPad || isFingerprint || isOCR || isBarcode) ? (
+            <div className="w-full border-2 border-[#00ffff]/40 bg-zinc-950 rounded-sm relative overflow-hidden flex flex-col md:min-h-[10px] max-h-[350px] shadow-2xl flex-1">
+               {(isDocScanner || isPassportScanner || isFaceRecognition || isSignPad || isFingerprint || isOCR || isBarcode || isPalmVein) ? (
                  <div className="p-3 flex flex-col flex-1 overflow-hidden">
                     <div className="flex items-center justify-between border-b border-[#00ffff]/20 pb-2 mb-2 shrink-0">
                        <div className="flex items-center gap-2 text-[#00ffff] font-black uppercase text-[14px]">
                           <TerminalIcon size={18} className="animate-pulse" />
                           <span>Device_Console_Output</span>
                        </div>
-                       <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Streaming_Sync</div>
+                       <div className="text-[12px] text-white font-bold uppercase tracking-widest">Streaming_Sync</div>
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 font-mono text-[12px] pr-2">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 font-mono text-[13px] pr-2">
                        {scannerLogs.length > 0 ? (
                           scannerLogs.map((log, i) => (
                             <div key={i} className={`flex gap-3 leading-tight ${log.includes('[ERROR]') ? 'text-red-400' : log.includes('[SUCCESS]') ? 'text-emerald-400' : 'text-zinc-400'}`}>

@@ -289,8 +289,8 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
   const renderResultContent = () => {
     if (!extractedData) return (
       <div className="flex flex-col items-center justify-center h-full opacity-20 py-10">
-        <Scan size={48} className={isProcessing ? "animate-pulse text-[#00ffff]" : ""} />
-        <span className="text-[12px] font-black uppercase tracking-[0.3em] mt-4">Menunggu Output Data</span>
+        <Scan size={48} className={isProcessing ? "animate-pulse text-white" : ""} />
+        <span className="text-[14px] text-white font-black uppercase tracking-[0.3em] mt-4">Menunggu Output Data</span>
       </div>
     );
 
@@ -324,20 +324,20 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
         
         {/* PANEL KONTROL */}
         <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm shadow-2xl flex flex-col gap-4">
-          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[12px] font-black uppercase z-20 shadow-md">OCR Control Panel</div>
+          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[18px] font-black uppercase z-20 shadow-md">OCR Control Panel</div>
           
           <div className="space-y-4">
             <div className="space-y-2 text-left">
-              <label className="text-[11px] text-[#00ffff]/60 font-black block uppercase tracking-widest">Metode Input:</label>
+              <label className="text-[16px] text-white font-black block uppercase tracking-widest pt-4">Metode Input:</label>
               <select 
                 value={inputMode}
                 onChange={(e) => {
                    setInputMode(e.target.value);
                    if (e.target.value === 'file') stopCamera();
                 }}
-                className="w-full bg-black border-2 border-[#00ffff]/20 p-2.5 text-[#00ffff] text-[12px] font-black uppercase outline-none focus:border-[#00ffff] transition-all cursor-pointer"
+                className="w-full bg-black border-2 border-[#00ffff]/20 p-2.5 text-[#00ffff] text-[14px] font-black uppercase outline-none focus:border-[#00ffff] transition-all cursor-pointer"
               >
-                <option value="camera">📷 Live Camera (Polygon Mode)</option>
+                <option value="camera">📷 Live Camera</option>
                 <option value="file">📂 Unggah Berkas Lokal</option>
               </select>
             </div>
@@ -354,8 +354,8 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
                   className="w-full h-full object-contain" 
                 />
                 {!isCameraActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/80">
-                    <Camera size={40} className="text-zinc-800" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-zinc-800/60 border border-[#00ffff]/20 rounded-sm">
+                    <Camera size={40} className="text-white" />
                   </div>
                 )}
               </div>
@@ -363,7 +363,7 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
               <div className="flex flex-col gap-4">
                 <button 
                   onClick={() => fileInputRef.current.click()} 
-                  className={`py-10 border-2 border-dashed text-[12px] px-4 font-black transition-all flex flex-col items-center justify-center gap-3 group rounded-sm ${hasFileBuffer ? 'border-[#00ffff] bg-[#00ffff]/10 text-[#00ffff]' : 'border-[#00ffff]/40 bg-[#00ffff]/5 text-zinc-500 hover:text-[#00ffff]'}`}
+                  className={`py-10 border-2 border-dashed text-[16px] px-4 font-black transition-all flex flex-col items-center justify-center gap-3 group rounded-sm ${hasFileBuffer ? 'border-[#00ffff] bg-[#00ffff]/10 text-[#00ffff]' : 'border-[#00ffff]/40 bg-[#00ffff]/5 text-zinc-500 hover:text-[#00ffff]'}`}
                 >
                   <Folder size={32} />
                   <span>{hasFileBuffer ? "Ganti Gambar" : "Klik Untuk Memilih Berkas"}</span>
@@ -377,18 +377,18 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
             {inputMode === 'camera' && (
               <button 
                 onClick={isCameraActive ? stopCamera : startCamera}
-                className={`py-3 border-2 font-black text-[12px] uppercase flex items-center justify-center gap-2 transition-all rounded-sm ${isCameraActive ? 'bg-red-600 border-red-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white shadow-[0_0_15px_#10b98144]'}`}
+                className={`py-3 border-2 font-black text-[18px] uppercase flex items-center justify-center gap-2 transition-all rounded-sm ${isCameraActive ? 'bg-red-600 border-red-600 text-white' : 'bg-emerald-600 border-emerald-600 text-white shadow-[0_0_15px_#10b98144]'}`}
               >
-                {isCameraActive ? <Square size={14} /> : <Play size={14} />}
+                {isCameraActive ? <Square size={18} /> : <Play size={18} />}
                 {isCameraActive ? "Hentikan Kamera" : "Aktifkan Kamera"}
               </button>
             )}
             <button 
               onClick={handleExtract}
               disabled={(inputMode === 'camera' && !isCameraActive) || (inputMode === 'file' && !hasFileBuffer) || isProcessing}
-              className={`py-3 border-2 font-black text-[12px] uppercase flex items-center justify-center gap-2 transition-all rounded-sm ${((inputMode === 'camera' && isCameraActive) || (inputMode === 'file' && hasFileBuffer)) && !isProcessing ? 'bg-[#00ffff] border-[#00ffff] text-black shadow-[0_0_15px_#00ffff44]' : 'bg-zinc-800 border-zinc-700 text-zinc-500 disabled:opacity-50'} ${inputMode === 'file' ? 'col-span-2' : ''}`}
+              className={`py-3 border-2 font-black text-[18px] uppercase flex items-center justify-center gap-2 transition-all rounded-sm ${((inputMode === 'camera' && isCameraActive) || (inputMode === 'file' && hasFileBuffer)) && !isProcessing ? 'bg-[#00ffff] border-[#00ffff] text-black shadow-[0_0_15px_#00ffff44]' : 'bg-zinc-800 border-zinc-700 text-zinc-500 disabled:opacity-50'} ${inputMode === 'file' ? 'col-span-2' : ''}`}
             >
-              {isProcessing ? <RefreshCw size={14} className="animate-spin" /> : <Scan size={14} />}
+              {isProcessing ? <RefreshCw size={18} className="animate-spin" /> : <Scan size={14} />}
               Jalankan OCR
             </button>
           </div>
@@ -396,14 +396,14 @@ const App = ({ data, setLogs: setGlobalLogs }) => {
 
         {/* PANEL HASIL RECOGNITION */}
         <div className="border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm shadow-2xl flex flex-col min-h-[400px]">
-           <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[12px] font-black uppercase z-20 shadow-md">Data Extraction Stream</div>
+           <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[18px] font-black uppercase z-20 shadow-md">Data Extraction Stream</div>
            
-           <div className="flex gap-1 mb-4 bg-black/40 p-1 border border-[#00ffff]/10">
+           <div className="flex gap-1 mb-4 bg-black/40 p-1 pt-2 border border-[#00ffff]/10">
               {['text', 'visual', 'markdown'].map(t => (
                 <button 
                   key={t}
                   onClick={() => setSubTab(t)}
-                  className={`flex-1 py-1.5 text-[10px] font-black uppercase transition-all ${subTab === t ? 'bg-[#00ffff] text-black shadow-[inset_0_0_10px_rgba(0,0,0,0.2)]' : 'text-zinc-500 hover:text-[#00ffff]'}`}
+                  className={`flex-1 py-1.5 text-[14px] border border-l border-[#00ffff]/40 font-black uppercase transition-all ${subTab === t ? 'bg-[#00ffff] text-black shadow-[inset_0_0_10px_rgba(0,0,0,0.2)]' : 'text-white hover:text-[#00ffff]'}`}
                 >
                   {t}
                 </button>

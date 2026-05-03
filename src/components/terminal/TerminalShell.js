@@ -42,7 +42,7 @@ const TerminalShell = ({
       >
         <div className="absolute inset-0 bg-[#00ffff]/40" style={{ clipPath: polyOuter }} />
         <div className={`absolute inset-0 transition-colors duration-300 ${isActive ? 'bg-[#00ffff]' : 'bg-zinc-950'}`} style={{ clipPath: polyInner }} />
-        <span className={`relative z-30 text-[15px] font-black font-mono uppercase tracking-[0.1em] ${isActive ? 'text-black' : 'text-[#00ffff]/40'}`}>
+        <span className={`relative z-30 text-[18px] font-black font-mono uppercase tracking-[0.1em] ${isActive ? 'text-black' : 'text-[#00ffff]/40'}`}>
           {label}
         </span>
       </button>

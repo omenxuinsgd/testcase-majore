@@ -94,11 +94,21 @@ const FaceRecognitionModule = ({ activeTab }) => {
     }
   }, [activeTab, userData.userId]);
 
-  const addLog = (msg, type = "info") => {
-    const timestamp = new Date().toLocaleTimeString();
+  const addLog = (message, type = "info") => {
+    const time = new Date().toLocaleTimeString();
     const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
-    setLogs(prev => [`${prefix} ${msg} (${timestamp})`, ...prev].slice(0, 50));
+    
+    setLogs(prev => {
+      const newEntry = `${prefix} ${message} (${time})`;
+      // Cek apakah pesan terakhir sama persis untuk menghindari duplikasi visual
+      if (prev.length > 0 && prev[0] === newEntry) return prev;
+      return [newEntry, ...prev].slice(0, 50);
+    });
   };
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
+  }, [logs]);
 
   const handleUserSelection = (e) => {
     const selectedId = e.target.value;
@@ -327,14 +337,14 @@ const FaceRecognitionModule = ({ activeTab }) => {
       {/* SELECTBOX: Sekarang hanya muncul di tab Pendaftaran (face_enrollment) */}
       {activeTab === 'face_enrollment' && (
         <div className="bg-zinc-900/80 p-4 border-2 border-[#00ffff]/30 rounded-sm flex flex-col gap-2 shrink-0 shadow-lg animate-in fade-in slide-in-from-top-4">
-          <label className="text-[10px] font-black text-[#00ffff] uppercase tracking-widest flex items-center gap-2">
-            <User size={12} /> PILIH TARGET PENDAFTARAN
+          <label className="text-[16px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+            <User size={18} /> PILIH TARGET PENDAFTARAN
           </label>
           <select
             value={userData.userId}
             onChange={handleUserSelection}
             disabled={isLoadingUsers || isProcessing}
-            className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-xs outline-none focus:border-[#00ffff] transition-colors cursor-pointer"
+            className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-[16px] outline-none focus:border-[#00ffff] transition-colors cursor-pointer"
           >
             <option value="">-- PILIH PERSONEL ({availableUsers.length} TERDAFTAR) --</option>
             {availableUsers.map((user) => (
@@ -360,34 +370,34 @@ const FaceRecognitionModule = ({ activeTab }) => {
           <div className="flex items-center justify-between bg-zinc-900/60 p-3 border border-[#00ffff]/10 rounded-sm shrink-0">
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-              <span className={`text-[11px] font-black uppercase tracking-widest ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
-                {isConnected ? 'KAMERA_AKTIF' : 'SENSOR_OFFLINE'}
+              <span className={`text-[16px] font-black uppercase tracking-widest ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+                {isConnected ? 'KAMERA_AKTIF' : 'KAMERA_OFFLINE'}
               </span>
             </div>
             
             <div className="flex gap-2">
               <button 
                 onClick={isConnected ? stopCamera : startCamera} 
-                className={`px-4 py-1.5 border-2 text-[10px] font-black uppercase rounded-sm transition-all flex items-center gap-2 ${isConnected ? 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white' : 'border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black'}`}
+                className={`px-4 py-1.5 border-2 text-[16px] font-black uppercase rounded-sm transition-all flex items-center gap-2 ${isConnected ? 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white' : 'border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black'}`}
               >
-                <Power size={14} /> {isConnected ? 'Stop Sensor' : 'Start Sensor'}
+                <Power size={18} /> {isConnected ? 'Stop Sensor' : 'Start Sensor'}
               </button>
 
               {activeTab === 'face_verification' ? (
                 <button 
                   onClick={handleMatchAction} 
                   disabled={!isConnected || isProcessing} 
-                  className="px-4 py-1.5 border-2 border-[#00ffff] text-[#00ffff] text-[10px] font-black uppercase rounded-sm hover:bg-[#00ffff] hover:text-black disabled:opacity-30 transition-all flex items-center gap-2"
+                  className="px-4 py-1.5 border-2 border-[#00ffff] text-[#00ffff] text-[16px] font-black uppercase rounded-sm hover:bg-[#00ffff] hover:text-black disabled:opacity-30 transition-all flex items-center gap-2"
                 >
-                  <CheckCircle size={14} /> Matching
+                  <CheckCircle size={18} /> Matching
                 </button>
               ) : (
                 <button 
                   onClick={handleEnrollAction} 
                   disabled={!isConnected || isProcessing || !userData.userId} 
-                  className="px-4 py-1.5 border-2 border-emerald-500 text-emerald-400 text-[10px] font-black uppercase rounded-sm hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2"
+                  className="px-4 py-1.5 border-2 border-emerald-500 text-emerald-400 text-[16px] font-black uppercase rounded-sm hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2"
                 >
-                  <Save size={14} /> Enroll Wajah
+                  <Save size={18} /> Enroll Wajah
                 </button>
               )}
             </div>
@@ -396,12 +406,12 @@ const FaceRecognitionModule = ({ activeTab }) => {
           {/* Area Utama Tab */}
           <div className="flex-1 border-2 border-[#00ffff]/20 bg-zinc-950/60 rounded-sm overflow-hidden flex flex-col relative">
             <div className="bg-[#00ffff]/10 px-4 py-2 border-b border-[#00ffff]/20 flex justify-between items-center shrink-0">
-               <span className="text-[10px] font-black text-[#00ffff] uppercase tracking-widest">
+               <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-widest">
                  {activeTab === 'face_enrollment' ? 'BIOMETRIC_DATA_VAULT' : 'VERIFICATION_TERMINAL'}
                </span>
-               <div className="px-2 py-0.5 bg-black/40 border border-[#00ffff]/20 text-[8px] text-[#00ffff] font-black">
+               {/* <div className="px-2 py-0.5 bg-black/40 border border-[#00ffff]/20 text-[8px] text-[#00ffff] font-black">
                  SISTEM: {statusMsg.toUpperCase()}
-               </div>
+               </div> */}
             </div>
 
             <div className="flex-1 overflow-auto custom-scrollbar">
@@ -443,9 +453,9 @@ const FaceRecognitionModule = ({ activeTab }) => {
                     </tbody>
                   </table>
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-700 italic gap-4 py-20">
-                    <Database size={48} strokeWidth={1} className="opacity-20" />
-                    <span className="text-[10px] uppercase tracking-[0.4em]">
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-100 italic gap-4 py-20">
+                    <Database size={72} strokeWidth={1} className="opacity-20" />
+                    <span className="text-[16px] uppercase tracking-[0.4em]">
                       {userData.userId ? `DATA KOSONG UNTUK ${userData.name}` : 'SILAKAN PILIH PERSONEL'}
                     </span>
                   </div>
@@ -518,11 +528,11 @@ const FaceRecognitionModule = ({ activeTab }) => {
         <div className="w-full lg:w-[480px] flex flex-col gap-4 shrink-0">
            <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-950 rounded-sm overflow-hidden flex flex-col relative shadow-[0_0_30px_rgba(0,255,255,0.1)]">
               <div className="p-3 bg-zinc-900/80 border-b border-[#00ffff]/20 flex items-center justify-between">
-                 <div className="flex items-center gap-2 text-[#00ffff] font-black uppercase text-[12px]">
-                    <Zap size={14} fill="#00ffff" /> 
+                 <div className="flex items-center gap-2 text-[#00ffff] font-black uppercase text-[16px]">
+                    <Zap size={18} fill="#00ffff" /> 
                     <span>Live_Tracking_Feed</span>
                  </div>
-                 <Activity size={14} className="text-[#00ffff] animate-pulse" />
+                 <Activity size={18} className="text-[#00ffff] animate-pulse" />
               </div>
               
               <div className="flex-1 relative bg-black flex items-center justify-center">
@@ -532,16 +542,16 @@ const FaceRecognitionModule = ({ activeTab }) => {
                    <div className="absolute inset-x-0 h-[2px] bg-[#00ffff] shadow-[0_0_15px_#00ffff] animate-pixel-scan z-20" />
                  )}
                  {!isConnected && (
-                   <div className="flex flex-col items-center gap-3 opacity-10">
+                   <div className="pr-100 flex flex-col items-center gap-3 opacity-10 text-white">
                      <Video size={120} strokeWidth={1} />
-                     <span className="text-[10px] font-black uppercase tracking-[0.5em]">SIGNAL_LOST</span>
+                     <span className="text-[16px] font-black uppercase tracking-[0.5em]">SIGNAL_LOST</span>
                    </div>
                  )}
               </div>
            </div>
 
            {/* Console Log Panel */}
-           <div className="h-40 border-2 border-[#00ffff]/20 bg-black/40 rounded-sm overflow-hidden flex flex-col">
+           {/* <div className="h-40 border-2 border-[#00ffff]/20 bg-black/40 rounded-sm overflow-hidden flex flex-col">
               <div className="px-3 py-2 border-b border-[#00ffff]/10 bg-black/60 flex items-center gap-2">
                  <TerminalIcon size={12} className="text-[#00ffff]" />
                  <span className="text-[9px] font-black text-white uppercase tracking-widest">Face_Console_Log</span>
@@ -554,7 +564,7 @@ const FaceRecognitionModule = ({ activeTab }) => {
                     </div>
                  ))}
               </div>
-           </div>
+           </div> */}
         </div>
       </div>
 

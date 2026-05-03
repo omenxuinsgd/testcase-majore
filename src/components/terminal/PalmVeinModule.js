@@ -42,11 +42,13 @@ const PalmVeinModule = ({ activeTab }) => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        setIsLoadingUsers(true);
         const response = await fetch(`${baseUrl}/api/face/data_personal`);
         if (response.ok) {
           const data = await response.json();
           const sortedData = data.sort((a, b) => a.UserID - b.UserID);
           setAvailableUsers(sortedData);
+          addLog("Database personel disinkronkan.", "success");
         }
       } catch (error) {
         addLog("Gagal mengambil daftar personel.");
@@ -128,9 +130,15 @@ const PalmVeinModule = ({ activeTab }) => {
     if (activeTab === 'identification') setEnrollResult(null);
   }, [activeTab]);
 
-  const addLog = (msg) => {
-    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
+  const addLog = (msg, type = "info") => {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
+    setLogs(prev => [`${prefix} ${msg} (${timestamp})`, ...prev].slice(0, 50));
   };
+
+  useEffect(() => {
+      window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
+    }, [logs]);
 
   // Fungsi untuk handle perubahan SelectBox
   const handleUserSelection = (e) => {
@@ -294,14 +302,14 @@ const PalmVeinModule = ({ activeTab }) => {
            {/* HEADER SELECTBOX (Khusus Enrollment) */}
            {(activeTab === 'enrollment' || activeTab === 'data') && (
         <div className="bg-zinc-900/80 p-4 border-2 border-[#00ffff]/30 rounded-sm flex flex-col gap-2">
-          <label className="text-[10px] font-black text-[#00ffff] uppercase tracking-widest flex items-center gap-2">
-            <User size={12} /> {activeTab === 'data' ? 'Filter Brankas Identiti' : 'Pilih Personel Untuk Enrollment'}
+          <label className="text-[16px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+            <User size={18} /> {activeTab === 'data' ? 'Filter Brankas Identiti' : 'Pilih Personel Untuk Enrollment'}
           </label>
           <select
             value={userData.userId}
             onChange={handleUserSelection}
             disabled={isLoadingUsers || isProcessing}
-            className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-xs outline-none focus:border-[#00ffff] transition-colors"
+            className="w-full bg-black border border-[#00ffff]/40 p-2 text-[#00ffff] text-[14px] font-bold outline-none focus:border-[#00ffff] transition-colors"
           >
             <option value="">-- PILIH NAMA PERSONEL --</option>
             {availableUsers.map((user) => (
@@ -322,44 +330,45 @@ const PalmVeinModule = ({ activeTab }) => {
               {/* Canvas Preview RGB & IR Tetap Sama */}
               <div className="relative h-full border-2 border-[#00ffff]/30 bg-black rounded-sm overflow-hidden group">
                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 bg-black/80 px-2 py-0.5 border border-[#00ffff]/20 rounded-sm">
-                    <Camera size={10} className="text-[#00ffff]" />
-                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Visual_RGB</span>
+                    <Camera size={16} className="text-[#00ffff]" />
+                    <span className="text-[14px] font-black text-white uppercase tracking-widest">Visual_RGB</span>
                  </div>
                  <canvas id="palm1" ref={rgbCanvasRef} className="w-full h-full object-contain opacity-90" />
                  {isScanning && <div className="absolute inset-x-0 h-[2px] bg-[#00ffff]/40 shadow-[0_0_10px_#00ffff] animate-scan-line z-20" />}
               </div>
               <div className="relative h-full border-2 border-purple-500/30 bg-black rounded-sm overflow-hidden group">
                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 bg-purple-900/60 px-2 py-0.5 border border-purple-400/20 rounded-sm">
-                    <Eye size={10} className="text-purple-400" />
-                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Inframerah</span>
+                    <Eye size={16} className="text-purple-400" />
+                    <span className="text-[14px] font-black text-white uppercase tracking-widest">Inframerah</span>
                  </div>
                  <canvas id="palm2" ref={irCanvasRef} className="w-full h-full object-contain grayscale sepia opacity-80" />
               </div>
 
               {/* PANEL KONTROL TERINTEGRASI */}
-           <div className="grid grid-cols-3 gap-2 bg-zinc-900/80 p-3 border border-[#00ffff]/20 rounded-sm">
-              <label className="text-[10px] font-black text-[#00ffff] uppercase tracking-widest flex items-center gap-2">
-                Panel Kontrol
+           <div className="grid grid-cols-3 gap-4 bg-zinc-900/80 p-3 border border-[#00ffff]/20 rounded-sm">
+              <label className="text-[16px] font-black text-white uppercase tracking-widest flex items-center gap-4">
+                <Camera size={78} className="text-white" />
+                <span>Kontrol Kamera</span>
               </label>
               <button 
                 onClick={startPalmProtocol} 
                 disabled={isScanning} 
-                className={`col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase transition-all rounded-sm border-2 ${isScanning ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-[#00ffff]/10 border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black'}`}>
-                <Play size={12} fill="currentColor" /> Start Sensor
+                className={`col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase transition-all rounded-sm border-2 ${isScanning ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-[#00ffff]/10 border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black'}`}>
+                <Play size={18} fill="currentColor" /> Mulai Kamera
               </button>
               
               <button 
                 onClick={finishPalmProtocol} 
-                className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase rounded-sm border-2 bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">
-                <Square size={12} fill="currentColor" /> Stop Sensor
+                className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase rounded-sm border-2 bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">
+                <Square size={18} fill="currentColor" /> Stop Kamera
               </button>
 
               {activeTab === 'enrollment' ? (
                 <button 
                   onClick={handleEnrollAction} 
                   disabled={!isScanning || isProcessing || !userData.userId}
-                  className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase rounded-sm border-2 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 disabled:grayscale">
-                  <UserCheck size={14} /> Jalankan Enrollment
+                  className="col-span-3 h-[52px] flex items-center justify-center gap-2 py-2 text-[18px] font-black uppercase rounded-sm border-2 bg-emerald-500/20 border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white disabled:opacity-30 disabled:grayscale">
+                  <UserCheck size={18} /> Jalankan Enrollment
                 </button>
               ) : (
                 <button 
@@ -379,10 +388,10 @@ const PalmVeinModule = ({ activeTab }) => {
            <div className=" flex-1 border-2 border-[#00ffff]/20 bg-zinc-950/60 pt-2 px-5 rounded-sm flex flex-col gap-4 shadow-xl relative overflow-hidden">
                          <div className="flex items-center justify-between border-b border-[#00ffff]/10 pb-3">
                             <div className="flex items-center gap-3">
-                               <Zap size={18} className={isScanning ? "text-[#00ffff] animate-pulse" : "text-zinc-700"} />
-                               <span className="text-[12px] font-black text-[#00ffff] uppercase tracking-widest">{activeTab === 'enrollment' ? 'Biometric_Enrollment_Status' : 'Identity_Matching_Result'}</span>
+                               <Zap size={18} className={isScanning ? "text-[#00ffff] animate-pulse" : "text-[#00ffff]"} />
+                               <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-widest">{activeTab === 'enrollment' ? 'Biometric_Enrollment_Status' : 'Identity_Matching_Result'}</span>
                             </div>
-                            <div id="status" className="px-3 py-1 bg-[#00ffff]/10 border border-[#00ffff]/30 rounded-sm text-[9px] font-black text-[#00ffff]">SISTEM: {statusMsg.toUpperCase()}</div>
+                            {/* <div id="status" className="px-3 py-1 bg-[#00ffff]/10 border border-[#00ffff]/30 rounded-sm text-[9px] font-black text-[#00ffff]">SISTEM: {statusMsg.toUpperCase()}</div> */}
                          </div>
                          
                          <div className="flex-1 flex flex-col justify-center">
@@ -429,7 +438,7 @@ const PalmVeinModule = ({ activeTab }) => {
             <div className="bg-[#00ffff]/5 px-5 py-4 border-b-[3px] border-[#00ffff]/20 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <FileJson size={18} className="text-[#00ffff]" />
-                <span className="text-[12px] font-black text-[#00ffff] uppercase tracking-[0.3em]">Brankas Identiti</span>
+                <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-[0.3em]">Brankas Identitas</span>
               </div>
               {userData.userId && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-3 py-1 border border-emerald-400/30 rounded-full">Viewing: {userData.name}</span>}
             </div>

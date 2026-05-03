@@ -207,11 +207,11 @@ const SignPadModule = ({ data }) => {
     <div className="flex-1 p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar text-left font-mono">
       <div className="flex flex-col lg:flex-row gap-8 items-start shrink-0">
         <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-900/60 p-5 relative rounded-sm flex flex-col shadow-2xl min-h-[160px]">
-          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[16px] font-black uppercase z-[50]">Registrasi Data User</div>
+          <div className="absolute -top-[12px] left-6 bg-white text-black px-4 py-0.5 text-[18px] font-black uppercase z-[50]">Registrasi Data User</div>
           
           <div className="flex flex-col gap-4 py-4">
             <div className="space-y-1">
-              <label className="text-[12px] text-[#00ffff]/60 uppercase font-black tracking-widest flex items-center gap-2 ml-1">
+              <label className="text-[16px] text-white uppercase font-black tracking-widest flex items-center gap-2 ml-1">
                 <IdCard size={14} /> Pilih Personel Target
               </label>
               
@@ -219,7 +219,7 @@ const SignPadModule = ({ data }) => {
                 value={regData.userId}
                 onChange={handleUserSelection}
                 disabled={isDataSaved || isApiLoading || isLoadingUsers}
-                className="w-full bg-black border-2 border-[#00ffff]/10 focus:border-[#00ffff] p-3 text-[#00ffff] text-[14px] outline-none rounded-sm transition-all cursor-pointer font-black"
+                className="w-full bg-black border-2 border-[#00ffff]/50 focus:border-[#00ffff] p-3 text-[#00ffff] text-[14px] outline-none rounded-sm transition-all cursor-pointer font-black"
               >
                 <option value="">-- PILIH PERSONEL ({availableUsers.length} TERDAFTAR) --</option>
                 {availableUsers.map((user) => (
@@ -260,16 +260,16 @@ const SignPadModule = ({ data }) => {
 
       <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-[300px] mb-2 overflow-hidden font-mono">
         <div className="md:flex-[2.5] border-2 border-[#00ffff]/40 bg-zinc-950 flex flex-col rounded-sm relative overflow-hidden shadow-2xl">
-            <div className="flex items-center gap-3 text-[#00ffff] py-2 px-4 uppercase font-black border-b border-[#00ffff]/10 bg-zinc-900/50 shrink-0">
+            <div className="flex items-center gap-3 text-[#00ffff] py-2 px-4 uppercase font-black border-b border-[#00ffff]/40 bg-zinc-900/80 shrink-0">
                 <Database size={12} />
                 <span>Personal Biometric Data</span>
                 {isApiLoading && <Loader2 size={12} className="animate-spin ml-2" />}
             </div>
             
             <div className="flex-1 overflow-x-auto custom-scrollbar p-2 bg-black/40">
-                 <table className="w-full text-left font-mono text-[12px] border-collapse">
+                 <table className="w-full text-left font-mono text-[14px] border-collapse">
                     <thead>
-                        <tr className="text-zinc-500 border-b border-[#00ffff]/10">
+                        <tr className="text-white border-b border-[#00ffff]/50">
                             <th className="py-2 px-3 uppercase font-black tracking-widest">UserID</th>
                             <th className="py-2 px-3 uppercase font-black tracking-widest">Name</th>
                             <th className="py-2 px-3 uppercase font-black tracking-widest">Address</th>
@@ -311,7 +311,7 @@ const SignPadModule = ({ data }) => {
                     </tbody>
                  </table>
                  {!isApiLoading && userList.length === 0 && (
-                   <div className="py-12 text-center text-zinc-700 uppercase tracking-[0.5em] italic opacity-40">--- No Records Found ---</div>
+                   <div className="py-12 text-center text-white uppercase tracking-[0.5em] italic opacity-40">--- No Records Found ---</div>
                  )}
                  {isApiLoading && userList.length === 0 && (
                    <div className="py-12 text-center text-[#00ffff]/40 uppercase tracking-[0.2em] animate-pulse">Menarik Data Brankas...</div>
@@ -319,8 +319,8 @@ const SignPadModule = ({ data }) => {
             </div>
 
             <div className="px-4 py-1.5 bg-zinc-900/40 border-t border-[#00ffff]/10 flex justify-between items-center shrink-0">
-               <span className="text-[7px] text-zinc-500 uppercase font-bold flex items-center gap-1"><ShieldCheck size={8}/> Authentication_Active</span>
-               <span className="text-[7px] text-[#00ffff]/40 font-black uppercase tracking-widest">Vault_v1.4.5</span>
+               <span className="text-[12px] text-zinc-500 uppercase font-bold flex items-center gap-1"><ShieldCheck size={8}/> Authentication_Active</span>
+               {/* <span className="text-[7px] text-[#00ffff]/40 font-black uppercase tracking-widest">Vault_v1.4.5</span> */}
             </div>
         </div>
       </div>
