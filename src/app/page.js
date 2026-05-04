@@ -12,7 +12,9 @@ import {
   HardDrive, 
   Code2,
   ChevronRight,
-  User, UserPlus, CircleUserRound, X, IdCard, MapPin, Send, Loader2, AlertCircle, CheckCircle
+  User, UserPlus, CircleUserRound, X, IdCard, MapPin, Send, Loader2, AlertCircle, CheckCircle,
+  Power,RefreshCw,
+  ListRestart, Restart,
 } from 'lucide-react';
 
 // Import Modular Components
@@ -46,48 +48,141 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
+  // Tambahkan di dalam fungsi App()
+  const [confirmAction, setConfirmAction] = useState({ show: false, type: '', message: '' });
+
   // State simulasi statistik monitoring
   const [stats, setStats] = useState({
     cpu: 24, gpu: 12, ram: "4.8 / 16.0 GB", storage: "128 / 512 GB", firmware: "v2.8.5-LTS"
   });
 
+  const handleSystemAction = (type) => {
+    setConfirmAction({ 
+        show: true, 
+        type, 
+        message: `PERINGATAN: Sistem akan melakukan ${type.toUpperCase()}. Lanjutkan?` 
+    });
+};
+
+// const executeSystemCommand = async () => {
+//     const actionType = confirmAction.type;
+//     setConfirmAction({ ...confirmAction, show: false });
+    
+//     showNotification(`Mengeksekusi ${actionType.toUpperCase()}...`, 'info');
+    
+//     try {
+//         // Mengirim ke API internal Next.js yang menjalankan child_process
+//         await fetch('/api/system/command', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ type: actionType })
+//         });
+//     } catch (error) {
+//         showNotification("Gagal mengirim perintah ke sistem lokal.", "error");
+//     }
+// };
   // Fungsi Notifikasi
+  
+  const executeSystemCommand = async () => {
+    const actionType = confirmAction.type;
+    setConfirmAction({ ...confirmAction, show: false });
+    
+    showNotification(`Mengeksekusi ${actionType.toUpperCase()}...`, 'info');
+    
+    try {
+        // Mengarah ke folder /api/system (Next.js otomatis mencari route.js di sana)
+        await fetch('/api/system', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: actionType })
+        });
+    } catch (error) {
+        showNotification("Gagal mengirim perintah ke sistem lokal.", "error");
+    }
+};
+
   const showNotification = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
   };
 
   // Fungsi Submit (Logika dari regist.js)
-  const handleRegisterSubmit = async (e) => {
+  // const handleRegisterSubmit = async (e) => {
+  //   e.preventDefault();
+  //   if (!formData.userId || !formData.fullName || !formData.address) {
+  //     showNotification('Harap isi semua kolom.', 'error');
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   const dataToSend = new FormData();
+  //   dataToSend.append("userId", formData.userId);
+  //   dataToSend.append("Name", formData.fullName);
+  //   dataToSend.append("Address", formData.address);
+
+  //   try {
+  //     const response = await fetch("https://localhost:7180/api/face/registration", {
+  //       method: "POST",
+  //       body: dataToSend
+  //     }).catch(() => ({ ok: true })); // Simulasi sukses jika server offline
+
+  //     if (response.ok) {
+  //       showNotification('Subjek Berhasil Didaftarkan!');
+  //       setFormData({ userId: '', fullName: '', address: '' });
+  //       setTimeout(() => setShowRegistModal(false), 1500);
+  //     }
+  //   } catch (error) {
+  //     showNotification('Gagal terhubung ke server.', 'error');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // Ganti handleRegisterSubmit dari baris 66-87 dengan kode ini
+const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     if (!formData.userId || !formData.fullName || !formData.address) {
-      showNotification('Harap isi semua kolom.', 'error');
-      return;
+        showNotification('Harap isi semua kolom.', 'error');
+        return;
     }
 
     setLoading(true);
-    const dataToSend = new FormData();
-    dataToSend.append("userId", formData.userId);
-    dataToSend.append("Name", formData.fullName);
-    dataToSend.append("Address", formData.address);
+    
+    // Gunakan URLSearchParams yang lebih reliable
+    const params = new URLSearchParams();
+    params.append('userId', formData.userId);
+    params.append('Name', formData.fullName);
+    params.append('Address', formData.address);
 
     try {
-      const response = await fetch("https://localhost:7180/api/face/registration", {
-        method: "POST",
-        body: dataToSend
-      }).catch(() => ({ ok: true })); // Simulasi sukses jika server offline
-
-      if (response.ok) {
-        showNotification('Subjek Berhasil Didaftarkan!');
-        setFormData({ userId: '', fullName: '', address: '' });
-        setTimeout(() => setShowRegistModal(false), 1500);
-      }
+        const response = await fetch("https://localhost:7180/api/face/registration", {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString()
+        });
+        
+        const result = await response.json();
+        console.log('Server response:', result); // Untuk debugging
+        
+        if (response.ok && result.success !== false) {
+            // Cek apakah update atau insert berdasarkan response
+            const message = result.isUpdate ? 'Data berhasil diupdate!' : 'Registrasi berhasil!';
+            showNotification(message, 'success');
+            setFormData({ userId: '', fullName: '', address: '' });
+            setTimeout(() => setShowRegistModal(false), 1500);
+        } else {
+            const errorMsg = result.message || 'Gagal registrasi';
+            showNotification(errorMsg, 'error');
+        }
     } catch (error) {
-      showNotification('Gagal terhubung ke server.', 'error');
+        console.error('Fetch error:', error);
+        showNotification('Gagal terhubung ke server. Pastikan backend berjalan.', 'error');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   useEffect(() => {
     setMounted(true);
@@ -148,7 +243,30 @@ export default function App() {
 
   return (
     <div className={`relative min-h-screen transition-colors duration-700 font-mono overflow-hidden flex flex-col selection:bg-[#00ffff] selection:text-black ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
-      
+      <AnimatePresence>
+  {confirmAction.show && (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/90 backdrop-blur-md"
+      />
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="relative bg-zinc-950 border-2 border-rose-500/50 p-8 max-w-sm w-full rounded-sm shadow-[0_0_50px_rgba(225,29,72,0.3)] text-center font-mono"
+      >
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4 animate-pulse" />
+        <h3 className="text-[#00ffff] font-black uppercase text-xl mb-2 italic">System_Override</h3>
+        <p className="text-zinc-400 text-xs mb-8 leading-relaxed tracking-widest">{confirmAction.message}</p>
+        
+        <div className="flex gap-4">
+          <button onClick={executeSystemCommand} className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 uppercase tracking-widest active:scale-95 transition-all">YES</button>
+          <button onClick={() => setConfirmAction({ show: false, type: '', message: '' })} className="flex-1 bg-zinc-800 text-zinc-300 font-black py-2.5 uppercase tracking-widest active:scale-95 transition-all">NO</button>
+        </div>
+      </motion.div>
+    </div>
+  )}
+</AnimatePresence>
+
       {/* Lapis Latar Belakang */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <AnimatePresence mode="wait">
@@ -418,14 +536,24 @@ export default function App() {
         </div>
         
         <div className="flex items-center space-x-4 sm:space-x-6 shrink-0">
-            {/* <div className="flex space-x-1 sm:space-x-2">
-               <button onClick={() => { setActiveIdx(p => (p - 1 + CONTENT_DATA.length) % CONTENT_DATA.length); setProgress(0); }} className={`p-1.5 sm:p-2 border transition-all ${isDarkMode ? 'border-[#00ffff]/30 hover:bg-[#00ffff] hover:text-black' : 'border-slate-300 hover:bg-slate-200'}`}>
-                 <svg className="w-3 h-3 sm:w-4 sm:h-4 p-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-               </button>
-               <button onClick={() => { setActiveIdx(p => (p + 1) % CONTENT_DATA.length); setProgress(0); }} className={`p-1.5 sm:p-2 border transition-all ${isDarkMode ? 'border-[#00ffff]/30 hover:bg-[#00ffff] hover:text-black' : 'border-slate-300 hover:bg-slate-200'}`}>
-                 <svg className="w-3 h-3 sm:w-4 sm:h-4 p-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-               </button>
-            </div> */}
+            {/* Tombol Kontrol Sistem di Footer */}
+          <div className="flex space-x-3 shrink-0">
+  <button 
+    onClick={() => handleSystemAction('shutdown')}
+    className="group flex items-center gap-2 px-4 py-2 border-2 border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+  >
+    <Power className="w-4 h-4 group-hover:animate-pulse" />
+    <span>Shutdown</span>
+  </button>
+
+  <button 
+    onClick={() => handleSystemAction('restart')}
+    className="group flex items-center gap-2 px-4 py-2 border-2 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+  >
+    <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+    <span>Restart</span>
+  </button>
+</div>
             <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full border-2 flex items-center justify-center relative ${isDarkMode ? 'border-[#00ffff]/20' : 'border-slate-200'}`}>
                <svg className="w-full h-full rotate-[-90deg]">
                  <circle cx="50%" cy="50%" r="42%" fill="none" stroke="currentColor" strokeWidth="2" className={isDarkMode ? "text-gray-800" : "text-slate-200"} />
