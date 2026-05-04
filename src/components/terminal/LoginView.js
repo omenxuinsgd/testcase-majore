@@ -228,15 +228,15 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
               M-ONE <span className={isDarkMode ? 'text-[#00ffff]' : 'text-blue-600'}>AIO</span>
             </h1>
             <div className="flex items-center gap-2 px-3 py-1 bg-[#00ffff]/10 border border-[#00ffff]/20 rounded-full">
-               <Scan size={10} className="animate-pulse" />
-               <span className="text-[9px] font-black uppercase tracking-[0.2em]">Menunggu_Otentikasi_Terminal</span>
+               <Scan size={18} className="animate-pulse" />
+               <span className="text-[14px] font-black uppercase tracking-[0.2em]">Menunggu_Otentikasi_Terminal</span>
             </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6 relative z-10">
             <div className="space-y-2 group">
-              <label className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60 group-focus-within:opacity-100 transition-opacity">
-                <User size={12} className="text-[#00ffff]" /> ID_OPERATOR
+              <label className="text-[14px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60 group-focus-within:opacity-100 transition-opacity">
+                <User size={18} className="text-[#00ffff]" /> ID_OPERATOR
               </label>
               <div className="relative">
                 <input 
@@ -246,14 +246,14 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
                   onChange={(e) => setFormData({...formData, userId: e.target.value})}
                   disabled={status === 'authenticating' || status === 'success'}
                   placeholder="Ketik ID Admin..."
-                  className={`w-full bg-black/40 border-2 p-4 text-sm outline-none transition-all placeholder:text-zinc-700 ${isDarkMode ? 'border-[#00ffff]/20 focus:border-[#00ffff] text-[#00ffff]' : 'border-slate-300 focus:border-slate-900 text-slate-900'}`}
+                  className={`w-full bg-black/40 border-2 p-2 text-[18px] outline-none transition-all placeholder:text-zinc-700 ${isDarkMode ? 'border-[#00ffff]/20 focus:border-[#00ffff] text-[#00ffff]' : 'border-slate-300 focus:border-slate-900 text-slate-900'}`}
                 />
               </div>
             </div>
 
             <div className="space-y-2 group">
-              <label className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60 group-focus-within:opacity-100 transition-opacity">
-                <Lock size={12} className="text-[#00ffff]" /> KUNCI_ENKRIPSI
+              <label className="text-[14px] font-black uppercase tracking-widest flex items-center gap-2 opacity-60 group-focus-within:opacity-100 transition-opacity">
+                <Lock size={18} className="text-[#00ffff]" /> KUNCI_ENKRIPSI
               </label>
               <div className="relative">
                 <input 
@@ -263,7 +263,7 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
                   onChange={(e) => setFormData({...formData, accessKey: e.target.value})}
                   disabled={status === 'authenticating' || status === 'success'}
                   placeholder="••••••••"
-                  className={`w-full bg-black/40 border-2 p-4 text-sm outline-none transition-all placeholder:text-zinc-700 ${isDarkMode ? 'border-[#00ffff]/20 focus:border-[#00ffff] text-[#00ffff]' : 'border-slate-300 focus:border-slate-900 text-slate-900'}`}
+                  className={`w-full bg-black/40 border-2 p-2 text-[18px] outline-none transition-all placeholder:text-zinc-700 ${isDarkMode ? 'border-[#00ffff]/20 focus:border-[#00ffff] text-[#00ffff]' : 'border-slate-300 focus:border-slate-900 text-slate-900'}`}
                 />
               </div>
             </div>
@@ -307,7 +307,7 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
             </motion.button>
           </form>
 
-          <div className="mt-10 pt-6 border-t border-[#00ffff]/10 flex justify-between items-end text-[8px] font-bold opacity-30 uppercase tracking-[0.2em]">
+          <div className="mt-10 pt-6 border-t border-[#00ffff]/10 flex justify-between items-end text-[10px] font-bold opacity-30 uppercase tracking-[0.2em]">
             <div className="flex flex-col gap-1">
               <span>ALGORITMA: AES_256_BIT</span>
               <span>NODE: JAKARTA_V2_A1</span>

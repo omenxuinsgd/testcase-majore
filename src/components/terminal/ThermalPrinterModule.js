@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Keyboard, Activity, Printer as PrinterIcon, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Keyboard, Activity, Printer as PrinterIcon, Loader2, X } from 'lucide-react';
 
 /**
  * ThermalPrinterModule
@@ -12,6 +13,14 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
   const [format, setFormat] = useState("text"); // text, qrcode, barcode
   const [isLoading, setIsLoading] = useState(false);
   const [activeInput, setActiveInput] = useState('text');
+
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
 
   // Ambil API Base URL dari environment variable
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5160";
@@ -32,6 +41,7 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
 
   const handleAction = async (endpoint, body = null) => {
     setIsLoading(true);
+    showToast("Mengirim perintah cetak...", "success");
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -40,12 +50,15 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
       });
 
       if (response.ok) {
+        showToast("Proses Cetak Berhasil", "success"); // Toast sukses
         addLog(`Cetak ${endpoint.split('-')[1]} berhasil`, 'success');
       } else {
+        showToast("Gagal Mencetak", "error"); // Toast gagal
         const errData = await response.text();
         addLog(`Gagal: ${response.status} - ${errData}`, 'error');
       }
     } catch (error) {
+      showToast("Kesalahan Jaringan", "error"); // Toast network error
       addLog(`Network Error: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
@@ -54,6 +67,7 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
 
   const handlePrintSubmit = () => {
     if (!printText && format !== 'sample') {
+      showToast("Input teks kosong!", "error"); // Tambahkan toast error
       addLog("Input teks kosong!", "error");
       return;
     }
@@ -61,12 +75,15 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
     // Mapping endpoint berdasarkan format
     switch (format) {
       case 'qrcode':
+        showToast("Mengirim perintah cetak QRCode...", "success");
         handleAction('/api/printer/print-qrcode', printText);
         break;
       case 'barcode':
+        showToast("Mengirim perintah cetak Barcode...", "success");
         handleAction('/api/printer/print-barcode', printText);
         break;
       default:
+        showToast("Mengirim perintah cetak teks...", "success");
         handleAction('/api/printer/print-text', printText);
         break;
     }
@@ -74,6 +91,27 @@ const ThermalPrinterModule = ({ data, activeTab }) => {
 
   return (
     <div className="flex-1 p-8 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+      {/* KOMPONEN TOAST GLOBAL */}
+      <AnimatePresence>
+        {toast.show && (
+          <motion.div 
+            initial={{ opacity: 0, x: 50 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            exit={{ opacity: 0, x: 50 }} 
+            className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+              toast.type === 'success' 
+                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+                : 'bg-rose-500/10 border-rose-500 text-rose-400'
+            }`}
+          >
+            <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+            <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+    </AnimatePresence>
+
       <div className="flex flex-col lg:flex-row gap-10 items-start">
         {/* VISUAL STATUS */}
         {/* <div className="w-full lg:w-[190px] flex flex-col items-center gap-2 shrink-0">

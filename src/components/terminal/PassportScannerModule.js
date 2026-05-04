@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 
   Square, 
@@ -19,7 +20,7 @@ import {
   Zap,
   RefreshCcw,
   Video,
-  VideoOff
+  VideoOff, X
 } from 'lucide-react';
 
 /**
@@ -36,6 +37,14 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
 
   // State navigasi tab output internal
   const [outputTab, setOutputTab] = useState('image'); 
+
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+    
+  const showToast = (message, type = "success") => {
+    const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Sibuk";
+    setToast({ show: true, message: cleanMsg, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 5000);
+  };
 
   // State simulasi data
   const [isSentExecuted, setIsSentExecuted] = useState(false);
@@ -151,6 +160,8 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
     let counter = 0;
     const maxRetry = 20;
 
+    showToast("Memulai Proses OCR...", "success");
+
     addLog("Memulai ekstraksi Passport OCR...", "success");
 
     while (counter < maxRetry) {
@@ -183,6 +194,7 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
           img.src = b64Image;
           setOcrResultJson(json.parsed);
           window.dispatchEvent(new CustomEvent('terminal:update-preview', { detail: b64Image }));
+          showToast("MRZ Paspor Berhasil Dibaca", "success");
           addLog("Paspor MRZ berhasil terdeteksi.", "success");
           break;
         }
@@ -209,15 +221,18 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
         // T10K Scanner Start
         await fetch(`${baseUrl}/api/scanner_t10k/scanner_start`);
         setIsScannerActive(true);
+        showToast("Scanner T10K Aktif", "success");
         addLog("T10K Scanner Hardware Started.", "success");
       } else {
         // NFC Service Start
         const res = await fetch(`${baseUrl}/api/nfc/start`);
         const msg = await res.text();
         setIsScannerActive(true);
+        showToast("Layanan NFC Aktif", "success");
         addLog(`NFC Service Started: ${msg}`, "success");
       }
     } catch (err) {
+      showToast("Gagal Memulai Perangkat", "error");
       addLog("Failed to start hardware service.", "error");
     }
   };
@@ -247,10 +262,12 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
    * handleShowImagesScanner (T10K Integration)
    */
   const handleShowImagesT10K = () => {
-    if (!isScannerActive) return addLog("Scanner is not active.", "error");
+    if (!isScannerActive) return showToast("Scanner belum aktif!", "error");
     setIsProcessing(true);
     setOutputTab('image');
     const ts = Date.now();
+
+    showToast("Mengambil Gambar Spektral...", "success");
 
     addLog("Requesting multispectral images from T10K...", "info");
 
@@ -384,7 +401,27 @@ const PassportScannerModule = ({ data, activeTab: propActiveTab }) => {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-      
+      {/* KOMPONEN TOAST GLOBAL */}
+          <AnimatePresence>
+            {toast.show && (
+              <motion.div 
+                initial={{ opacity: 0, x: 50 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                exit={{ opacity: 0, x: 50 }} 
+                className={`fixed top-12 right-12 z-[9999] flex items-center gap-3 px-6 py-3 border-2 shadow-2xl backdrop-blur-md rounded-sm ${
+                  toast.type === 'success' 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+                    : 'bg-rose-500/10 border-rose-500 text-rose-400'
+                }`}
+              >
+                <span className="text-[18px] font-black uppercase tracking-widest">{toast.message}</span>
+                <button onClick={() => setToast({ ...toast, show: false })} className="hover:text-white transition-colors">
+                  <X size={18} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
       {activeTab === 'ocr' ? (
         /* DISPLAY KHUSUS MENU EKSTRAKSI OCR */
         <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-950 flex flex-col rounded-sm relative overflow-hidden shadow-2xl min-h-[600px]">
