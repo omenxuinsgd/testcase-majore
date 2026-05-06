@@ -9,7 +9,7 @@ import {
   AlertCircle, 
   ChevronRight, 
   CheckCircle2,
-  Scan
+  Scan, Power, RefreshCw
 } from 'lucide-react';
 
 /**
@@ -154,6 +154,44 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
   const [formData, setFormData] = useState({ userId: '', accessKey: '' });
   const [status, setStatus] = useState('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  
+
+  // Tambahkan di dalam fungsi App()
+  const [confirmAction, setConfirmAction] = useState({ show: false, type: '', message: '' });
+  
+  const handleSystemAction = (type) => {
+    setConfirmAction({ 
+        show: true, 
+        type, 
+        message: `PERINGATAN: Sistem akan melakukan ${type.toUpperCase()}. Lanjutkan?` 
+    });
+};
+
+// Fungsi Notifikasi
+  
+  const executeSystemCommand = async () => {
+    const actionType = confirmAction.type;
+    setConfirmAction({ ...confirmAction, show: false });
+    
+    showNotification(`Mengeksekusi ${actionType.toUpperCase()}...`, 'info');
+    
+    try {
+        // Mengarah ke folder /api/system (Next.js otomatis mencari route.js di sana)
+        await fetch('/api/system', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: actionType })
+        });
+    } catch (error) {
+        showNotification("Gagal mengirim perintah ke sistem lokal.", "error");
+    }
+};
+
+  const showNotification = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -181,6 +219,29 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
 
   return (
     <div className={`fixed inset-0 z-[1000] flex items-center justify-center font-mono overflow-hidden transition-colors duration-1000 ${isDarkMode ? 'bg-[#050505] text-[#00ffff]' : 'bg-slate-100 text-slate-900'}`}>
+      <AnimatePresence>
+        {confirmAction.show && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-zinc-950 border-2 border-rose-500/50 p-8 max-w-sm w-full rounded-sm shadow-[0_0_50px_rgba(225,29,72,0.3)] text-center font-mono"
+            >
+              <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4 animate-pulse" />
+              <h3 className="text-[#00ffff] font-black uppercase text-xl mb-2 italic">System_Override</h3>
+              <p className="text-zinc-400 text-xs mb-8 leading-relaxed tracking-widest">{confirmAction.message}</p>
+              
+              <div className="flex gap-4">
+                <button onClick={executeSystemCommand} className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 uppercase tracking-widest active:scale-95 transition-all">YES</button>
+                <button onClick={() => setConfirmAction({ show: false, type: '', message: '' })} className="flex-1 bg-zinc-800 text-zinc-300 font-black py-2.5 uppercase tracking-widest active:scale-95 transition-all">NO</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       
       {/* Background Layers */}
       <BinaryRain isLight={!isDarkMode} />
@@ -325,6 +386,25 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(0,255,0,0.01),rgba(0,0,255,0.01))] bg-[length:100%_4px,4px_100%]" />
         <div className="absolute top-10 left-10 w-20 h-20 border-t-4 border-l-4 border-[#00ffff]/20" />
         <div className="absolute bottom-10 right-10 w-20 h-20 border-b-4 border-r-4 border-[#00ffff]/20" />
+      </div>
+
+      {/* Tombol Kontrol Sistem di Pojok Kanan Bawah */}
+      <div className="absolute bottom-15 right-15 z-[1010] flex space-x-3 pointer-events-auto">
+        <button 
+          onClick={() => handleSystemAction('shutdown')}
+          className="group flex items-center gap-2 px-4 py-2 border-2 border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-lg bg-black/20 backdrop-blur-md"
+        >
+          <Power className="w-4 h-4 group-hover:animate-pulse" />
+          <span className="hidden sm:inline">Shutdown</span>
+        </button>
+
+        <button 
+          onClick={() => handleSystemAction('restart')}
+          className="group flex items-center gap-2 px-4 py-2 border-2 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-lg bg-black/20 backdrop-blur-md"
+        >
+          <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+          <span className="hidden sm:inline">Restart</span>
+        </button>
       </div>
 
       <style jsx>{`

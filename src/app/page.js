@@ -538,22 +538,22 @@ const handleRegisterSubmit = async (e) => {
         <div className="flex items-center space-x-4 sm:space-x-6 shrink-0">
             {/* Tombol Kontrol Sistem di Footer */}
           <div className="flex space-x-3 shrink-0">
-  <button 
-    onClick={() => handleSystemAction('shutdown')}
-    className="group flex items-center gap-2 px-4 py-2 border-2 border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-lg"
-  >
-    <Power className="w-4 h-4 group-hover:animate-pulse" />
-    <span>Shutdown</span>
-  </button>
+            <button 
+              onClick={() => handleSystemAction('shutdown')}
+              className="group flex items-center gap-2 px-4 py-2 border-2 border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+            >
+              <Power className="w-4 h-4 group-hover:animate-pulse" />
+              <span>Shutdown</span>
+            </button>
 
-  <button 
-    onClick={() => handleSystemAction('restart')}
-    className="group flex items-center gap-2 px-4 py-2 border-2 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-lg"
-  >
-    <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-    <span>Restart</span>
-  </button>
-</div>
+            <button 
+              onClick={() => handleSystemAction('restart')}
+              className="group flex items-center gap-2 px-4 py-2 border-2 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+            >
+              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+              <span>Restart</span>
+            </button>
+          </div>
             <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full border-2 flex items-center justify-center relative ${isDarkMode ? 'border-[#00ffff]/20' : 'border-slate-200'}`}>
                <svg className="w-full h-full rotate-[-90deg]">
                  <circle cx="50%" cy="50%" r="42%" fill="none" stroke="currentColor" strokeWidth="2" className={isDarkMode ? "text-gray-800" : "text-slate-200"} />
