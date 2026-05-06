@@ -465,8 +465,20 @@ const FaceRecognitionModule = ({ activeTab }) => {
                 </div>
               ) : (
                 <div className="aspect-video bg-black border-2 border-[#00ffff]/20 relative flex items-center justify-center overflow-hidden">
-                  {rembgData.isLiveActive ? <img src={rembgData.previewUrl} className="h-full w-full object-contain scale-x-[-1]" /> : <VideoOff size={40} className="opacity-20" />}
-                  <button onClick={() => rembgData.isLiveActive ? stopCamera() : startCamera('rembg')} className={`absolute bottom-4 px-6 py-2 border-2 text-[10px] font-black uppercase ${rembgData.isLiveActive ? 'border-rose-500 text-rose-500 bg-black/80' : 'border-emerald-500 text-emerald-400 bg-black/80'}`}>{rembgData.isLiveActive ? 'Stop Stream' : 'Start Stream'}</button>
+                  {rembgData.isLiveActive ? (
+                    <img src={rembgData.previewUrl} className="h-full w-full object-contain scale-x-[-1]" alt="Live Stream" />
+                  ) : (
+                    <div className="text-center text-zinc-800">
+                      <VideoOff size={40} className="mx-auto" />
+                      <span className="text-[10px] font-black">SENSOR_OFFLINE</span>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => rembgData.isLiveActive ? stopCamera() : toggleRembgCamera()} 
+                    className={`absolute bottom-4 px-6 py-2 border-2 text-[10px] font-black uppercase transition-all ${rembgData.isLiveActive ? 'border-rose-500 text-rose-500 bg-black/80' : 'border-emerald-500 text-emerald-400 bg-black/80'}`}
+                  >
+                    {rembgData.isLiveActive ? 'Stop Stream' : 'Start Stream'}
+                  </button>
                 </div>
               )}
               <input id="rembg-file" type="file" hidden accept="image/*" onChange={(e) => {
