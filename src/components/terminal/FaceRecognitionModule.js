@@ -19,7 +19,7 @@ import {
   Video,
   CheckCircle,
   Dna,
-  ShieldAlert
+  ShieldAlert, ImageIcon, Upload, VideoOff, Cpu
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -94,6 +94,8 @@ const FaceRecognitionModule = ({ activeTab }) => {
     }
   }, [activeTab, userData.userId]);
 
+  
+
   const addLog = (message, type = "info") => {
     const time = new Date().toLocaleTimeString();
     const prefix = type === "error" ? "[ERROR]" : type === "success" ? "[SUCCESS]" : "[INFO]";
@@ -109,6 +111,69 @@ const FaceRecognitionModule = ({ activeTab }) => {
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
   }, [logs]);
+
+  // Tambahkan state baru khusus untuk fitur RemBG (Hapus Background)
+  const [rembgData, setRembgData] = useState({
+    inputMode: 'upload', // 'upload' atau 'live'
+    isLiveActive: false,
+    selectedFile: null,
+    previewUrl: null,
+    model: 'u2net',
+    loading: false,
+    result: { image: null, mask: null }
+  });
+
+  const REMBG_API_URL = 'http://localhost:5000/api/remove-bg';
+
+  // Logika Start/Stop Camera untuk RemBG (Gunakan pola polling yang sama)
+  const toggleRembgCamera = () => {
+    if (rembgData.isLiveActive) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+      setRembgData(prev => ({ ...prev, isLiveActive: false }));
+    } else {
+      setRembgData(prev => ({ ...prev, isLiveActive: true }));
+      pollingRef.current = setInterval(async () => {
+        try {
+          const response = await fetch(`${baseUrl}/api/face/capture?t=${Date.now()}`);
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            setRembgData(prev => ({ 
+              ...prev, 
+              previewUrl: url, 
+              selectedFile: new File([blob], "rembg_live.jpg", { type: "image/jpeg" }) 
+            }));
+          }
+        } catch (err) { console.error(err); }
+      }, 200);
+    }
+  };
+
+  // Logika Submit RemBG
+  const handleRembgSubmit = async () => {
+    if (!rembgData.selectedFile) return toast.error("File Kosong!");
+    setRembgData(prev => ({ ...prev, loading: true }));
+    const formData = new FormData();
+    formData.append('image', rembgData.selectedFile);
+    formData.append('model', rembgData.model);
+
+    try {
+      const res = await fetch(REMBG_API_URL, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setRembgData(prev => ({ 
+          ...prev, 
+          result: { 
+            image: `data:image/png;base64,${data.image_base64}`, 
+            mask: `data:image/png;base64,${data.mask_base64}` 
+          } 
+        }));
+        addLog("Background removal berhasil dieksekusi.", "success");
+      }
+    } catch (err) { addLog("Koneksi API RemBG gagal.", "error"); }
+    finally { setRembgData(prev => ({ ...prev, loading: false })); }
+  };
 
   const handleUserSelection = (e) => {
     const selectedId = e.target.value;
@@ -334,244 +399,326 @@ const FaceRecognitionModule = ({ activeTab }) => {
     <div className="w-full h-full p-4 flex flex-col gap-4 overflow-hidden bg-black/40 font-mono text-left">
       <Toaster />
 
-      {/* SELECTBOX: Sekarang hanya muncul di tab Pendaftaran (face_enrollment) */}
-      {activeTab === 'face_enrollment' && (
-        <div className="bg-zinc-900/80 p-4 border-2 border-[#00ffff]/30 rounded-sm flex flex-col gap-2 shrink-0 shadow-lg animate-in fade-in slide-in-from-top-4">
-          <label className="text-[16px] font-black text-white uppercase tracking-widest flex items-center gap-2">
-            <User size={18} /> PILIH TARGET PENDAFTARAN
-          </label>
-          <select
-            value={userData.userId}
-            onChange={handleUserSelection}
-            disabled={isLoadingUsers || isProcessing}
-            className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-[16px] outline-none focus:border-[#00ffff] transition-colors cursor-pointer"
-          >
-            <option value="">-- PILIH PERSONEL ({availableUsers.length} TERDAFTAR) --</option>
-            {availableUsers.map((user) => (
-              <option key={user.UserID} value={user.UserID}>
-                ID: {user.UserID} | {user.Name}
-              </option>
-            ))}
-          </select>
-          {userData.userId && (
-            <div className="text-[12px] text-emerald-400 font-bold tracking-widest uppercase animate-pulse">
-              Sesi Aktif: {userData.name} (UID_{userData.userId})
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
-        
-        {/* SISI KANAN: Kontrol & Monitoring */}
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-          
-          {/* Header Controls */}
-          <div className="flex items-center justify-between bg-zinc-900/60 p-3 border border-[#00ffff]/10 rounded-sm shrink-0">
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-              <span className={`text-[16px] font-black uppercase tracking-widest ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
-                {isConnected ? 'KAMERA_AKTIF' : 'KAMERA_OFFLINE'}
-              </span>
-            </div>
+      {/* --- KONTEN TAB: HAPUS BACKGROUND (INTEGRASI UI-REMBG2) ---[cite: 22] */}
+      {activeTab === 'face_rembg' ? (
+        <div className="flex-1 flex flex-col gap-6 overflow-auto custom-scrollbar p-2 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            <div className="flex gap-2">
-              <button 
-                onClick={isConnected ? stopCamera : startCamera} 
-                className={`px-4 py-1.5 border-2 text-[16px] font-black uppercase rounded-sm transition-all flex items-center gap-2 ${isConnected ? 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white' : 'border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black'}`}
-              >
-                <Power size={18} /> {isConnected ? 'Stop Sensor' : 'Start Sensor'}
-              </button>
+            {/* Panel Kiri: Kontrol Input */}
+            <div className="bg-zinc-900/80 border-2 border-[#00ffff]/20 p-5 rounded-sm space-y-4 shadow-xl">
+              <div className="flex justify-between items-center">
+                <span className="text-[#00ffff] font-black uppercase tracking-widest flex items-center gap-2">
+                  <ImageIcon size={18} /> Source_Buffer_Input
+                </span>
+                <div className="flex bg-black p-1 rounded-sm border border-[#00ffff]/20">
+                  <button 
+                    onClick={() => { stopCamera(); setRembgData(p => ({...p, inputMode: 'upload'})); }} 
+                    className={`px-4 py-1 text-[10px] font-bold uppercase transition-all ${rembgData.inputMode === 'upload' ? 'bg-[#00ffff] text-black' : 'text-zinc-500'}`}
+                  >
+                    File
+                  </button>
+                  <button 
+                    onClick={() => setRembgData(p => ({...p, inputMode: 'live'}))} 
+                    className={`px-4 py-1 text-[10px] font-bold uppercase transition-all ${rembgData.inputMode === 'live' ? 'bg-[#00ffff] text-black' : 'text-zinc-500'}`}
+                  >
+                    Sensor
+                  </button>
+                </div>
+              </div>
 
-              {activeTab === 'face_verification' ? (
-                <button 
-                  onClick={handleMatchAction} 
-                  disabled={!isConnected || isProcessing} 
-                  className="px-4 py-1.5 border-2 border-[#00ffff] text-[#00ffff] text-[16px] font-black uppercase rounded-sm hover:bg-[#00ffff] hover:text-black disabled:opacity-30 transition-all flex items-center gap-2"
+              {/* Area Preview Input Berdasarkan Mode */}
+              {rembgData.inputMode === 'upload' ? (
+                <div 
+                  className="aspect-video border-2 border-dashed border-[#00ffff]/10 bg-black/40 flex items-center justify-center cursor-pointer group" 
+                  onClick={() => document.getElementById('rembg-file').click()}
                 >
-                  <CheckCircle size={18} /> Matching
-                </button>
+                  {rembgData.previewUrl ? (
+                    <img src={rembgData.previewUrl} className="h-full w-full object-contain" alt="Upload Preview" />
+                  ) : (
+                    <div className="text-center opacity-30 group-hover:opacity-100 transition-opacity">
+                      <Upload size={40} className="mx-auto mb-2" />
+                      <span className="text-xs uppercase">Klik Unggah Citra</span>
+                    </div>
+                  )}
+                </div>
               ) : (
-                <button 
-                  onClick={handleEnrollAction} 
-                  disabled={!isConnected || isProcessing || !userData.userId} 
-                  className="px-4 py-1.5 border-2 border-emerald-500 text-emerald-400 text-[16px] font-black uppercase rounded-sm hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2"
-                >
-                  <Save size={18} /> Enroll Wajah
-                </button>
+                <div className="aspect-video bg-black border-2 border-[#00ffff]/20 relative flex items-center justify-center overflow-hidden">
+                  {rembgData.isLiveActive ? (
+                    <img src={rembgData.previewUrl} className="h-full w-full object-contain scale-x-[-1]" alt="Live Stream" />
+                  ) : (
+                    <div className="text-center text-zinc-800">
+                      <VideoOff size={40} className="mx-auto" />
+                      <span className="text-[10px] font-black">SENSOR_OFFLINE</span>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => rembgData.isLiveActive ? stopCamera() : toggleRembgCamera()} 
+                    className={`absolute bottom-4 px-6 py-2 border-2 text-[10px] font-black uppercase transition-all ${rembgData.isLiveActive ? 'border-rose-500 text-rose-500 bg-black/80' : 'border-emerald-500 text-emerald-400 bg-black/80'}`}
+                  >
+                    {rembgData.isLiveActive ? 'Stop Stream' : 'Start Stream'}
+                  </button>
+                </div>
               )}
+              
+              <input 
+                id="rembg-file" 
+                type="file" 
+                hidden 
+                accept="image/*" 
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if(file) setRembgData(p => ({...p, previewUrl: URL.createObjectURL(file), selectedFile: file}));
+                }} 
+              />
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-zinc-500 uppercase tracking-widest">Vector_Engine_Selection</label>
+                <select 
+                  value={rembgData.model} 
+                  onChange={(e) => setRembgData(p => ({...p, model: e.target.value}))} 
+                  className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-sm outline-none focus:border-[#00ffff]"
+                >
+                  <option value="u2net">u2net (Standard)</option>
+                  <option value="isnet-general-use">isnet (General)</option>
+                </select>
+              </div>
+
+              <button 
+                onClick={handleRembgSubmit} 
+                disabled={rembgData.loading || (rembgData.inputMode === 'live' && !rembgData.isLiveActive)} 
+                className="w-full py-4 bg-[#00ffff] text-black font-black uppercase tracking-[0.2em] shadow-[0_0_15px_#00ffff44] hover:bg-[#00ffff]/80 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+              >
+                {rembgData.loading ? <Loader2 className="animate-spin" /> : <Cpu size={18} />}
+                {rembgData.loading ? 'Decoding...' : 'Execute_Decoding'}
+              </button>
+            </div>
+
+            {/* Panel Kanan: Hasil Output */}
+            <div className="space-y-6">
+              <div className="bg-zinc-950 border-2 border-[#00ffff]/20 p-4 rounded-sm aspect-video flex items-center justify-center overflow-hidden relative shadow-2xl">
+                <div className="absolute top-2 left-2 text-[10px] text-[#00ffff] font-bold uppercase tracking-widest bg-black/60 px-2 py-1 border border-[#00ffff]/20 z-10">Decoded_Result</div>
+                {rembgData.result.image ? (
+                  <img src={rembgData.result.image} className="h-full w-full object-contain" alt="Result" />
+                ) : (
+                  <span className="text-zinc-800 text-[10px] uppercase tracking-[0.5em] animate-pulse">Awaiting_Data_Stream...</span>
+                )}
+              </div>
+              <div className="bg-zinc-950 border-2 border-[#00ffff]/20 p-4 rounded-sm aspect-video flex items-center justify-center overflow-hidden relative shadow-2xl">
+                <div className="absolute top-2 left-2 text-[10px] text-[#00ffff] font-bold uppercase tracking-widest bg-black/60 px-2 py-1 border border-[#00ffff]/20 z-10">Alpha_Channel_Mask</div>
+                {rembgData.result.mask ? (
+                  <img src={rembgData.result.mask} className="h-full w-full object-contain brightness-125 hue-rotate-180" alt="Mask" />
+                ) : (
+                  <span className="text-zinc-800 text-[10px] uppercase tracking-[0.5em]">Empty_Mask_Buffer</span>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Area Utama Tab */}
-          <div className="flex-1 border-2 border-[#00ffff]/20 bg-zinc-950/60 rounded-sm overflow-hidden flex flex-col relative">
-            <div className="bg-[#00ffff]/10 px-4 py-2 border-b border-[#00ffff]/20 flex justify-between items-center shrink-0">
-               <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-widest">
-                 {activeTab === 'face_enrollment' ? 'DATA_PERSONEL' : 'VERIFICATION_TERMINAL'}
-               </span>
-               {/* <div className="px-2 py-0.5 bg-black/40 border border-[#00ffff]/20 text-[8px] text-[#00ffff] font-black">
-                 SISTEM: {statusMsg.toUpperCase()}
-               </div> */}
-            </div>
-
-            <div className="flex-1 overflow-auto custom-scrollbar">
-              {activeTab === 'face_enrollment' ? (
-                isProcessing ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-3 opacity-50">
-                    <Loader2 size={32} className="text-[#00ffff] animate-spin" />
-                    <span className="text-[10px] uppercase tracking-widest text-[#00ffff]">Menarik Data...</span>
-                  </div>
-                ) : biometricRecords.length > 0 ? (
-                  <table className="w-full text-[14px] border-collapse">
-                    <thead className="bg-black/60 sticky top-0 text-[#00ffff] uppercase font-bold border-b border-[#00ffff]/10">
-                      <tr>
-                        <th className="p-3 text-left">UID</th>
-                        <th className="p-3 text-left">Nama Personel</th> {/* TAMBAHKAN KOLOM NAMA */}
-                        <th className="p-3 text-left">Citra Biometrik</th>
-                        <th className="p-3 text-right">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-zinc-300 text-[16px]">
-                      {biometricRecords.map((record, idx) => (
-                        <tr key={idx} className="border-b border-[#00ffff]/5 hover:bg-[#00ffff]/5 transition-colors">
-                          <td className="p-3 font-mono font-bold text-white">{record.UserID}</td>
-                          {/* KOLOM NAMA BARU */}
-                          <td className="p-3 font-bold uppercase text-emerald-400">
-                            {userData.name || "Unknown"} 
-                          </td>
-                          <td className="p-3">
-                            <div className="w-18 h-18 bg-black border border-white/10 rounded-sm overflow-hidden group">
-                               <img 
-                                 src={`data:image/jpeg;base64,${record.Image}`} 
-                                 className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
-                                 alt="face" 
-                               />
-                            </div>
-                          </td>
-                          <td className="p-3 text-right">
-                            <button onClick={() => handleDelete(record.UserID)} className="p-2 text-red-500 hover:bg-red-500 hover:text-white rounded-sm border border-red-500/20 transition-all">
-                               <Trash2 size={12} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-100 italic gap-4 py-20">
-                    <Database size={72} strokeWidth={1} className="opacity-20" />
-                    <span className="text-[16px] uppercase tracking-[0.4em]">
-                      {userData.userId ? `DATA KOSONG UNTUK ${userData.name}` : 'SILAKAN PILIH PERSONEL'}
-                    </span>
-                  </div>
-                )
-              ) : (
-                <div className="p-6 h-full flex flex-col gap-6">
-                   {matchResult ? (
-                     <div className="p-6 border-2 border-emerald-500/40 bg-emerald-500/5 rounded-sm animate-in fade-in slide-in-from-left duration-500 flex flex-col gap-6 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                          <UserCheck size={80} className="text-emerald-400" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-12 relative z-10">
-                           <div className="flex flex-col gap-1">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">Nama Lengkap</span>
-                              <span className="text-[18px] font-mono font-bold uppercase text-white truncate drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{matchResult.name}</span>
-                           </div>
-                           <div className="flex flex-col gap-1">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">Authorization</span>
-                              <div className="flex items-center gap-2 text-emerald-400">
-                                <ShieldCheck size={16} className="animate-pulse" />
-                                <span className="text-xl font-black uppercase tracking-tighter">{matchResult.status}</span>
-                              </div>
-                           </div>
-                           <div className="flex flex-col gap-1">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">User ID</span>
-                              <span className="text-[18px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-3 py-1 w-fit border border-[#00ffff]/20 rounded-sm font-mono">{matchResult.userId}</span>
-                           </div>
-                        </div>
-                     </div>
-                   ) : (
-                     <div className="h-full flex flex-col items-center justify-center text-zinc-700 italic opacity-20 gap-4 py-20">
-                        <Scan size={64} strokeWidth={1} />
-                        <span className="text-[11px] uppercase tracking-[0.5em]">Awaiting_Sensor_Trigger</span>
-                     </div>
-                   )}
-
-                   {faceAttributes && (
-                     <div className="p-5 border-2 border-[#00ffff]/30 bg-black/40 rounded-sm flex flex-col gap-4 animate-in fade-in duration-700">
-                        <div className="flex items-center gap-2 text-[#00ffff] border-b border-[#00ffff]/10 pb-2">
-                           <Dna size={14} />
-                           <span className="text-[18px] font-black uppercase tracking-[0.2em]">Atribut Analisis</span>
-                        </div>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
-                           <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">Mask</span>
-                              <span className={`text-[18px] font-black uppercase mt-1 ${faceAttributes.Mask === 'No Mask' ? 'text-emerald-400' : 'text-yellow-400'}`}>{faceAttributes.Mask}</span>
-                           </div>
-                           <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">Gender</span>
-                              <span className="text-[18px] font-black uppercase text-white mt-1">{faceAttributes.Gender}</span>
-                           </div>
-                           <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">Age</span>
-                              <span className="text-[18px] font-black text-[#00ffff] mt-1">{faceAttributes.Age} <span className="text-[18px] font-normal text-zinc-500">Yrs</span></span>
-                           </div>
-                           <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
-                              <span className="text-[14px] text-zinc-500 uppercase font-black">Spoof</span>
-                              <span className={`text-[18px] font-black uppercase mt-1 ${faceAttributes.Spoof === 'Real' ? 'text-emerald-400' : 'text-rose-500'}`}>{faceAttributes.Spoof}</span>
-                           </div>
-                        </div>
-                     </div>
-                   )}
+        </div>
+      ) : (
+        /* --- TAB ASLI: PENDAFTARAN & VERIFIKASI ---[cite: 23] */
+        <>
+          {activeTab === 'face_enrollment' && (
+            <div className="bg-zinc-900/80 p-4 border-2 border-[#00ffff]/30 rounded-sm flex flex-col gap-2 shrink-0 shadow-lg animate-in fade-in slide-in-from-top-4">
+              <label className="text-[16px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <User size={18} /> PILIH TARGET PENDAFTARAN
+              </label>
+              <select
+                value={userData.userId}
+                onChange={handleUserSelection}
+                disabled={isLoadingUsers || isProcessing}
+                className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-[16px] outline-none focus:border-[#00ffff] transition-colors cursor-pointer"
+              >
+                <option value="">-- PILIH PERSONEL ({availableUsers.length} TERDAFTAR) --</option>
+                {availableUsers.map((user) => (
+                  <option key={user.UserID} value={user.UserID}>
+                    ID: {user.UserID} | {user.Name}
+                  </option>
+                ))}
+              </select>
+              {userData.userId && (
+                <div className="text-[12px] text-emerald-400 font-bold tracking-widest uppercase animate-pulse">
+                  Sesi Aktif: {userData.name} (UID_{userData.userId})
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* SISI KIRI: Tracking Feed */}
-        <div className="w-full lg:w-[480px] flex flex-col gap-4 shrink-0">
-           <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-950 rounded-sm overflow-hidden flex flex-col relative shadow-[0_0_30px_rgba(0,255,255,0.1)]">
-              <div className="p-3 bg-zinc-900/80 border-b border-[#00ffff]/20 flex items-center justify-between">
-                 <div className="flex items-center gap-2 text-[#00ffff] font-black uppercase text-[16px]">
-                    <Zap size={18} fill="#00ffff" /> 
-                    <span>Live_Tracking_Feed</span>
-                 </div>
-                 <Activity size={18} className="text-[#00ffff] animate-pulse" />
-              </div>
-              
-              <div className="flex-1 relative bg-black flex items-center justify-center">
-                 <canvas ref={cameraCanvasRef} className="hidden" />
-                 <canvas ref={resultCanvasRef} className="w-full h-full object-contain" />
-                 {isProcessing && (
-                   <div className="absolute inset-x-0 h-[2px] bg-[#00ffff] shadow-[0_0_15px_#00ffff] animate-pixel-scan z-20" />
-                 )}
-                 {!isConnected && (
-                   <div className="pr-100 flex flex-col items-center gap-3 opacity-10 text-white">
-                     <Video size={120} strokeWidth={1} />
-                     <span className="text-[16px] font-black uppercase tracking-[0.5em]">SIGNAL_LOST</span>
-                   </div>
-                 )}
-              </div>
-           </div>
+          <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+              {/* Header Controls */}
+              <div className="flex items-center justify-between bg-zinc-900/60 p-3 border border-[#00ffff]/10 rounded-sm shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className={`text-[16px] font-black uppercase tracking-widest ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {isConnected ? 'KAMERA_AKTIF' : 'KAMERA_OFFLINE'}
+                  </span>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button 
+                    onClick={isConnected ? stopCamera : startCamera} 
+                    className={`px-4 py-1.5 border-2 text-[16px] font-black uppercase rounded-sm transition-all flex items-center gap-2 ${isConnected ? 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white' : 'border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black'}`}
+                  >
+                    <Power size={18} /> {isConnected ? 'Stop Sensor' : 'Start Sensor'}
+                  </button>
 
-           {/* Console Log Panel */}
-           {/* <div className="h-40 border-2 border-[#00ffff]/20 bg-black/40 rounded-sm overflow-hidden flex flex-col">
-              <div className="px-3 py-2 border-b border-[#00ffff]/10 bg-black/60 flex items-center gap-2">
-                 <TerminalIcon size={12} className="text-[#00ffff]" />
-                 <span className="text-[9px] font-black text-white uppercase tracking-widest">Face_Console_Log</span>
+                  {activeTab === 'face_verification' ? (
+                    <button onClick={handleMatchAction} disabled={!isConnected || isProcessing} className="px-4 py-1.5 border-2 border-[#00ffff] text-[#00ffff] text-[16px] font-black uppercase rounded-sm hover:bg-[#00ffff] hover:text-black disabled:opacity-30 transition-all flex items-center gap-2">
+                      <CheckCircle size={18} /> Matching
+                    </button>
+                  ) : (
+                    <button onClick={handleEnrollAction} disabled={!isConnected || isProcessing || !userData.userId} className="px-4 py-1.5 border-2 border-emerald-500 text-emerald-400 text-[16px] font-black uppercase rounded-sm hover:bg-emerald-500 hover:text-white disabled:opacity-30 transition-all flex items-center gap-2">
+                      <Save size={18} /> Enroll Wajah
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 p-3 overflow-y-auto custom-scrollbar font-mono text-[9px] space-y-1">
-                 {logs.map((log, i) => (
-                    <div key={i} className={`flex gap-2 ${log.includes('[ERROR]') ? 'text-red-400' : log.includes('[SUCCESS]') ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                       <span className="opacity-30">&gt;</span>
-                       <span>{log}</span>
+
+              {/* Area Utama: Tabel Data atau Hasil Matching */}
+              <div className="flex-1 border-2 border-[#00ffff]/20 bg-zinc-950/60 rounded-sm overflow-hidden flex flex-col relative">
+                <div className="bg-[#00ffff]/10 px-4 py-2 border-b border-[#00ffff]/20 flex justify-between items-center shrink-0">
+                  <span className="text-[18px] font-black text-[#00ffff] uppercase tracking-widest">
+                    {activeTab === 'face_enrollment' ? 'DATA_PERSONEL' : 'VERIFICATION_TERMINAL'}
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-auto custom-scrollbar">
+                  {activeTab === 'face_enrollment' ? (
+                    isProcessing ? (
+                      <div className="h-full flex flex-col items-center justify-center gap-3 opacity-50">
+                        <Loader2 size={32} className="text-[#00ffff] animate-spin" />
+                        <span className="text-[10px] uppercase tracking-widest text-[#00ffff]">Menarik Data...</span>
+                      </div>
+                    ) : biometricRecords.length > 0 ? (
+                      <table className="w-full text-[14px] border-collapse">
+                        <thead className="bg-black/60 sticky top-0 text-[#00ffff] uppercase font-bold border-b border-[#00ffff]/10">
+                          <tr>
+                            <th className="p-3 text-left">UID</th>
+                            <th className="p-3 text-left">Nama Personel</th>
+                            <th className="p-3 text-left">Citra Biometrik</th>
+                            <th className="p-3 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-zinc-300 text-[16px]">
+                          {biometricRecords.map((record, idx) => (
+                            <tr key={idx} className="border-b border-[#00ffff]/5 hover:bg-[#00ffff]/5 transition-colors">
+                              <td className="p-3 font-mono font-bold text-white">{record.UserID}</td>
+                              <td className="p-3 font-bold uppercase text-emerald-400">{userData.name || "Unknown"}</td>
+                              <td className="p-3">
+                                <div className="w-18 h-18 bg-black border border-white/10 rounded-sm overflow-hidden group">
+                                   <img src={`data:image/jpeg;base64,${record.Image}`} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" alt="face" />
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <button onClick={() => handleDelete(record.UserID)} className="p-2 text-red-500 hover:bg-red-500 hover:text-white rounded-sm border border-red-500/20 transition-all">
+                                   <Trash2 size={12} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-zinc-100 italic gap-4 py-20">
+                        <Database size={72} strokeWidth={1} className="opacity-20" />
+                        <span className="text-[16px] uppercase tracking-[0.4em]">
+                          {userData.userId ? `DATA KOSONG UNTUK ${userData.name}` : 'SILAKAN PILIH PERSONEL'}
+                        </span>
+                      </div>
+                    )
+                  ) : (
+                    <div className="p-6 h-full flex flex-col gap-6">
+                       {matchResult ? (
+                         <div className="p-6 border-2 border-emerald-500/40 bg-emerald-500/5 rounded-sm animate-in fade-in slide-in-from-left duration-500 flex flex-col gap-6 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                              <UserCheck size={80} className="text-emerald-400" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-12 relative z-10">
+                               <div className="flex flex-col gap-1">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">Nama Lengkap</span>
+                                  <span className="text-[18px] font-mono font-bold uppercase text-white truncate drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{matchResult.name}</span>
+                               </div>
+                               <div className="flex flex-col gap-1">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">Authorization</span>
+                                  <div className="flex items-center gap-2 text-emerald-400">
+                                    <ShieldCheck size={16} className="animate-pulse" />
+                                    <span className="text-xl font-black uppercase tracking-tighter">{matchResult.status}</span>
+                                  </div>
+                               </div>
+                               <div className="flex flex-col gap-1">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">User ID</span>
+                                  <span className="text-[18px] font-bold text-[#00ffff] bg-[#00ffff]/10 px-3 py-1 w-fit border border-[#00ffff]/20 rounded-sm font-mono">{matchResult.userId}</span>
+                               </div>
+                            </div>
+                         </div>
+                       ) : (
+                         <div className="h-full flex flex-col items-center justify-center text-zinc-700 italic opacity-20 gap-4 py-20">
+                            <Scan size={64} strokeWidth={1} />
+                            <span className="text-[11px] uppercase tracking-[0.5em]">Awaiting_Sensor_Trigger</span>
+                         </div>
+                       )}
+
+                       {faceAttributes && (
+                         <div className="p-5 border-2 border-[#00ffff]/30 bg-black/40 rounded-sm flex flex-col gap-4 animate-in fade-in duration-700">
+                            <div className="flex items-center gap-2 text-[#00ffff] border-b border-[#00ffff]/10 pb-2">
+                               <Dna size={14} />
+                               <span className="text-[18px] font-black uppercase tracking-[0.2em]">Atribut Analisis</span>
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
+                               <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">Mask</span>
+                                  <span className={`text-[18px] font-black uppercase mt-1 ${faceAttributes.Mask === 'No Mask' ? 'text-emerald-400' : 'text-yellow-400'}`}>{faceAttributes.Mask}</span>
+                               </div>
+                               <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">Gender</span>
+                                  <span className="text-[18px] font-black uppercase text-white mt-1">{faceAttributes.Gender}</span>
+                               </div>
+                               <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">Age</span>
+                                  <span className="text-[18px] font-black text-[#00ffff] mt-1">{faceAttributes.Age} <span className="text-[18px] font-normal text-zinc-500">Yrs</span></span>
+                               </div>
+                               <div className="flex flex-col p-2 bg-zinc-900/60 border border-white/5 rounded-sm">
+                                  <span className="text-[14px] text-zinc-500 uppercase font-black">Spoof</span>
+                                  <span className={`text-[18px] font-black uppercase mt-1 ${faceAttributes.Spoof === 'Real' ? 'text-emerald-400' : 'text-rose-500'}`}>{faceAttributes.Spoof}</span>
+                               </div>
+                            </div>
+                         </div>
+                       )}
                     </div>
-                 ))}
+                  )}
+                </div>
               </div>
-           </div> */}
-        </div>
-      </div>
+            </div>
+
+            {/* SISI KIRI: Live Feed Standar Biometrik */}
+            <div className="w-full lg:w-[480px] flex flex-col gap-4 shrink-0">
+               <div className="flex-1 border-2 border-[#00ffff]/40 bg-zinc-950 rounded-sm overflow-hidden flex flex-col relative shadow-[0_0_30px_rgba(0,255,255,0.1)]">
+                  <div className="p-3 bg-zinc-900/80 border-b border-[#00ffff]/20 flex items-center justify-between">
+                     <div className="flex items-center gap-2 text-[#00ffff] font-black uppercase text-[16px]">
+                        <Zap size={18} fill="#00ffff" /> 
+                        <span>Live_Tracking_Feed</span>
+                     </div>
+                     <Activity size={18} className="text-[#00ffff] animate-pulse" />
+                  </div>
+                  
+                  <div className="flex-1 relative bg-black flex items-center justify-center">
+                     <canvas ref={cameraCanvasRef} className="hidden" />
+                     <canvas ref={resultCanvasRef} className="w-full h-full object-contain" />
+                     {isProcessing && (
+                       <div className="absolute inset-x-0 h-[2px] bg-[#00ffff] shadow-[0_0_15px_#00ffff] animate-pixel-scan z-20" />
+                     )}
+                     {!isConnected && (
+                       <div className="pr-100 flex flex-col items-center gap-3 opacity-10 text-white">
+                         <Video size={120} strokeWidth={1} />
+                         <span className="text-[16px] font-black uppercase tracking-[0.5em]">SIGNAL_LOST</span>
+                       </div>
+                     )}
+                  </div>
+               </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <style jsx>{`
         @keyframes pixel-scan { 0% { top: 0; } 100% { top: 100%; } }

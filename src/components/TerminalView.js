@@ -297,7 +297,7 @@ const TerminalView = (props) => {
 
   // --- 5. TABS CONFIGURATION ---
   const tabs = isFaceRecognition
-    ? [{ id: 'face_enrollment', label: 'Pendaftaran', type: 'enroll' }, { id: 'face_verification', label: 'Verifikasi', type: 'verify' }]
+    ? [{ id: 'face_enrollment', label: 'Pendaftaran', type: 'enroll' }, { id: 'face_verification', label: 'Verifikasi', type: 'verify' }, { id: 'face_rembg', label: 'Hapus Background', type: 'rembg' }]
     : isPalmVein
       ? [
           { id: 'enrollment', label: 'Enrollment', type: 'enroll' },
