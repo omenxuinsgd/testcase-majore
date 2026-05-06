@@ -19,7 +19,7 @@ import {
   Video,
   CheckCircle,
   Dna,
-  ShieldAlert, ImageIcon, Upload, VideoOff, Cpu
+  ShieldAlert, ImageIcon, Upload, VideoOff, Cpu, Palette, Download
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -51,6 +51,8 @@ const FaceRecognitionModule = ({ activeTab }) => {
   const resultCanvasRef = useRef(null);
   
   const isConnectedRef = useRef(false);
+
+  const [bgColor, setBgColor] = useState('transparent');
 
   useEffect(() => {
     isConnectedRef.current = isConnected;
@@ -113,17 +115,51 @@ const FaceRecognitionModule = ({ activeTab }) => {
   }, [logs]);
 
   // Tambahkan state baru khusus untuk fitur RemBG (Hapus Background)
+  // // --- STATE KHUSUS REMBG (HAPUS BACKGROUND)[cite: 24] ---
   const [rembgData, setRembgData] = useState({
-    inputMode: 'upload', // 'upload' atau 'live'
+    inputMode: 'upload', 
     isLiveActive: false,
     selectedFile: null,
     previewUrl: null,
     model: 'u2net',
     loading: false,
-    result: { image: null, mask: null }
+    result: { image: null, mask: null },
+    bgColor: 'transparent' // State warna background[cite: 24]
   });
 
   const REMBG_API_URL = 'http://localhost:5000/api/remove-bg';
+
+  // --- FUNGSI UNDUH (DENGAN BACKGROUND FLATTEN)[cite: 23] ---
+  const downloadFlattenedImage = (dataUrl, filename, backgroundColor) => {
+    if (backgroundColor === 'transparent') {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.click();
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+
+      // Isi background solid[cite: 23]
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Gambar objek di atas background[cite: 23]
+      ctx.drawImage(img, 0, 0);
+
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = filename;
+      link.click();
+    };
+    img.src = dataUrl;
+  };
 
   // Logika Start/Stop Camera untuk RemBG (Gunakan pola polling yang sama)
   const toggleRembgCamera = () => {
@@ -150,30 +186,37 @@ const FaceRecognitionModule = ({ activeTab }) => {
     }
   };
 
-  // Logika Submit RemBG
   const handleRembgSubmit = async () => {
-    if (!rembgData.selectedFile) return toast.error("File Kosong!");
+    if (!rembgData.selectedFile) return toast.error("SOURCE_BUFFER_EMPTY: Pilih citra!");
     setRembgData(prev => ({ ...prev, loading: true }));
+    
     const formData = new FormData();
     formData.append('image', rembgData.selectedFile);
     formData.append('model', rembgData.model);
 
     try {
-      const res = await fetch(REMBG_API_URL, { method: 'POST', body: formData });
-      const data = await res.json();
+      const response = await fetch(REMBG_API_URL, { method: 'POST', body: formData });
+      const data = await response.json();
       if (data.status === 'success') {
-        setRembgData(prev => ({ 
-          ...prev, 
-          result: { 
-            image: `data:image/png;base64,${data.image_base64}`, 
-            mask: `data:image/png;base64,${data.mask_base64}` 
-          } 
+        setRembgData(prev => ({
+          ...prev,
+          result: {
+            image: `data:image/png;base64,${data.image_base64}`,
+            mask: `data:image/png;base64,${data.mask_base64}`
+          }
         }));
-        addLog("Background removal berhasil dieksekusi.", "success");
       }
-    } catch (err) { addLog("Koneksi API RemBG gagal.", "error"); }
+    } catch (err) { toast.error("Koneksi API Gagal"); }
     finally { setRembgData(prev => ({ ...prev, loading: false })); }
   };
+
+  const colorPresets = [
+    { name: 'Transparan', value: 'transparent', class: 'bg-transparent border-white/20' },
+    { name: 'Putih', value: '#ffffff', class: 'bg-white' },
+    { name: 'Hitam', value: '#000000', class: 'bg-black border-white/10' },
+    { name: 'Cyber Blue', value: '#00ffff', class: 'bg-[#00ffff]' },
+    { name: 'Neon Pink', value: '#ff00ff', class: 'bg-[#ff00ff]' },
+  ];
 
   const handleUserSelection = (e) => {
     const selectedId = e.target.value;
@@ -404,112 +447,92 @@ const FaceRecognitionModule = ({ activeTab }) => {
         <div className="flex-1 flex flex-col gap-6 overflow-auto custom-scrollbar p-2 animate-in fade-in duration-500">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* Panel Kiri: Kontrol Input */}
-            <div className="bg-zinc-900/80 border-2 border-[#00ffff]/20 p-5 rounded-sm space-y-4 shadow-xl">
+            {/* PANEL INPUT */}
+            <div className="bg-zinc-900/80 border-2 border-[#00ffff]/20 p-5 rounded-sm space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-[#00ffff] font-black uppercase tracking-widest flex items-center gap-2">
-                  <ImageIcon size={18} /> Source_Buffer_Input
+                  <ImageIcon size={18} /> Source_Buffer
                 </span>
                 <div className="flex bg-black p-1 rounded-sm border border-[#00ffff]/20">
-                  <button 
-                    onClick={() => { stopCamera(); setRembgData(p => ({...p, inputMode: 'upload'})); }} 
-                    className={`px-4 py-1 text-[10px] font-bold uppercase transition-all ${rembgData.inputMode === 'upload' ? 'bg-[#00ffff] text-black' : 'text-zinc-500'}`}
-                  >
-                    File
-                  </button>
-                  <button 
-                    onClick={() => setRembgData(p => ({...p, inputMode: 'live'}))} 
-                    className={`px-4 py-1 text-[10px] font-bold uppercase transition-all ${rembgData.inputMode === 'live' ? 'bg-[#00ffff] text-black' : 'text-zinc-500'}`}
-                  >
-                    Sensor
-                  </button>
+                  <button onClick={() => { stopCamera(); setRembgData(p => ({...p, inputMode: 'upload'})); }} className={`px-4 py-1 text-[10px] font-bold uppercase transition-all ${rembgData.inputMode === 'upload' ? 'bg-[#00ffff] text-black' : 'text-zinc-500'}`}>File</button>
+                  <button onClick={() => setRembgData(p => ({...p, inputMode: 'live'}))} className={`px-4 py-1 text-[10px] font-bold uppercase transition-all ${rembgData.inputMode === 'live' ? 'bg-[#00ffff] text-black' : 'text-zinc-500'}`}>Sensor</button>
                 </div>
               </div>
 
-              {/* Area Preview Input Berdasarkan Mode */}
               {rembgData.inputMode === 'upload' ? (
-                <div 
-                  className="aspect-video border-2 border-dashed border-[#00ffff]/10 bg-black/40 flex items-center justify-center cursor-pointer group" 
-                  onClick={() => document.getElementById('rembg-file').click()}
-                >
-                  {rembgData.previewUrl ? (
-                    <img src={rembgData.previewUrl} className="h-full w-full object-contain" alt="Upload Preview" />
-                  ) : (
-                    <div className="text-center opacity-30 group-hover:opacity-100 transition-opacity">
-                      <Upload size={40} className="mx-auto mb-2" />
-                      <span className="text-xs uppercase">Klik Unggah Citra</span>
-                    </div>
-                  )}
+                <div className="aspect-video border-2 border-dashed border-[#00ffff]/10 bg-black/40 flex items-center justify-center cursor-pointer" onClick={() => document.getElementById('rembg-file').click()}>
+                  {rembgData.previewUrl ? <img src={rembgData.previewUrl} className="h-full w-full object-contain" /> : <div className="text-center opacity-30"><Upload size={40} className="mx-auto mb-2" /><span className="text-xs uppercase">Unggah Citra</span></div>}
                 </div>
               ) : (
                 <div className="aspect-video bg-black border-2 border-[#00ffff]/20 relative flex items-center justify-center overflow-hidden">
-                  {rembgData.isLiveActive ? (
-                    <img src={rembgData.previewUrl} className="h-full w-full object-contain scale-x-[-1]" alt="Live Stream" />
-                  ) : (
-                    <div className="text-center text-zinc-800">
-                      <VideoOff size={40} className="mx-auto" />
-                      <span className="text-[10px] font-black">SENSOR_OFFLINE</span>
-                    </div>
-                  )}
-                  <button 
-                    onClick={() => rembgData.isLiveActive ? stopCamera() : toggleRembgCamera()} 
-                    className={`absolute bottom-4 px-6 py-2 border-2 text-[10px] font-black uppercase transition-all ${rembgData.isLiveActive ? 'border-rose-500 text-rose-500 bg-black/80' : 'border-emerald-500 text-emerald-400 bg-black/80'}`}
-                  >
-                    {rembgData.isLiveActive ? 'Stop Stream' : 'Start Stream'}
-                  </button>
+                  {rembgData.isLiveActive ? <img src={rembgData.previewUrl} className="h-full w-full object-contain scale-x-[-1]" /> : <VideoOff size={40} className="opacity-20" />}
+                  <button onClick={() => rembgData.isLiveActive ? stopCamera() : startCamera('rembg')} className={`absolute bottom-4 px-6 py-2 border-2 text-[10px] font-black uppercase ${rembgData.isLiveActive ? 'border-rose-500 text-rose-500 bg-black/80' : 'border-emerald-500 text-emerald-400 bg-black/80'}`}>{rembgData.isLiveActive ? 'Stop Stream' : 'Start Stream'}</button>
                 </div>
               )}
-              
-              <input 
-                id="rembg-file" 
-                type="file" 
-                hidden 
-                accept="image/*" 
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if(file) setRembgData(p => ({...p, previewUrl: URL.createObjectURL(file), selectedFile: file}));
-                }} 
-              />
+              <input id="rembg-file" type="file" hidden accept="image/*" onChange={(e) => {
+                const file = e.target.files[0];
+                if(file) setRembgData(p => ({...p, previewUrl: URL.createObjectURL(file), selectedFile: file}));
+              }} />
+
+              {/* SELECTION BACKGROUND COLOR[cite: 23] */}
+              <div className="space-y-2 pt-2 border-t border-[#00ffff]/10">
+                <label className="text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                  <Palette size={12} className="text-[#00ffff]" /> Background_Preset
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  {colorPresets.map((color) => (
+                    <button
+                      key={color.name}
+                      onClick={() => setRembgData(p => ({...p, bgColor: color.value}))}
+                      className={`w-7 h-7 rounded-full border-2 transition-all ${color.class} ${rembgData.bgColor === color.value ? 'scale-110 border-[#00ffff] ring-2 ring-[#00ffff]/30' : 'border-transparent'}`}
+                    />
+                  ))}
+                  {/* CUSTOM COLOR PICKER[cite: 23] */}
+                  <div className="flex items-center gap-2 ml-auto border-l border-[#00ffff]/20 pl-3">
+                    <span className="text-[9px] text-zinc-500 uppercase">Custom:</span>
+                    <input 
+                      type="color" 
+                      value={rembgData.bgColor === 'transparent' ? '#000000' : rembgData.bgColor} 
+                      onChange={(e) => setRembgData(p => ({...p, bgColor: e.target.value}))}
+                      className="w-8 h-8 bg-transparent border-none cursor-pointer p-0"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-zinc-500 uppercase tracking-widest">Vector_Engine_Selection</label>
-                <select 
-                  value={rembgData.model} 
-                  onChange={(e) => setRembgData(p => ({...p, model: e.target.value}))} 
-                  className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-sm outline-none focus:border-[#00ffff]"
-                >
+                <label className="text-[10px] text-zinc-500 uppercase">Engine</label>
+                <select value={rembgData.model} onChange={(e) => setRembgData(p => ({...p, model: e.target.value}))} className="w-full bg-black border border-[#00ffff]/20 p-2 text-[#00ffff] text-xs outline-none">
                   <option value="u2net">u2net (Standard)</option>
                   <option value="isnet-general-use">isnet (General)</option>
                 </select>
               </div>
 
-              <button 
-                onClick={handleRembgSubmit} 
-                disabled={rembgData.loading || (rembgData.inputMode === 'live' && !rembgData.isLiveActive)} 
-                className="w-full py-4 bg-[#00ffff] text-black font-black uppercase tracking-[0.2em] shadow-[0_0_15px_#00ffff44] hover:bg-[#00ffff]/80 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
-              >
+              <button onClick={handleRembgSubmit} disabled={rembgData.loading || (rembgData.inputMode === 'live' && !rembgData.isLiveActive)} className="w-full py-4 bg-[#00ffff] text-black font-black uppercase tracking-[0.2em] shadow-[0_0_15px_#00ffff44] flex items-center justify-center gap-2">
                 {rembgData.loading ? <Loader2 className="animate-spin" /> : <Cpu size={18} />}
-                {rembgData.loading ? 'Decoding...' : 'Execute_Decoding'}
+                {rembgData.loading ? 'Decoding...' : 'Execute Decoding'}
               </button>
             </div>
 
-            {/* Panel Kanan: Hasil Output */}
+            {/* PANEL HASIL[cite: 23] */}
             <div className="space-y-6">
               <div className="bg-zinc-950 border-2 border-[#00ffff]/20 p-4 rounded-sm aspect-video flex items-center justify-center overflow-hidden relative shadow-2xl">
-                <div className="absolute top-2 left-2 text-[10px] text-[#00ffff] font-bold uppercase tracking-widest bg-black/60 px-2 py-1 border border-[#00ffff]/20 z-10">Decoded_Result</div>
-                {rembgData.result.image ? (
-                  <img src={rembgData.result.image} className="h-full w-full object-contain" alt="Result" />
-                ) : (
-                  <span className="text-zinc-800 text-[10px] uppercase tracking-[0.5em] animate-pulse">Awaiting_Data_Stream...</span>
-                )}
+                <div className="absolute top-2 left-2 flex items-center gap-2 z-10">
+                   <div className="text-[10px] text-[#00ffff] font-bold uppercase tracking-widest bg-black/60 px-2 py-1 border border-[#00ffff]/20">Result_Buffer</div>
+                   {rembgData.result.image && (
+                     <button onClick={() => downloadFlattenedImage(rembgData.result.image, 'face_rembg.png', rembgData.bgColor)} className="bg-[#00ffff] text-black p-1 hover:bg-white transition-colors flex items-center gap-1 text-[9px] font-bold px-2">
+                       <Download size={14} /> UNDUH
+                     </button>
+                   )}
+                </div>
+                <div style={{ backgroundColor: rembgData.bgColor }} className={`w-full h-full flex items-center justify-center transition-colors duration-500 ${rembgData.bgColor === 'transparent' ? 'bg-[url("https://www.transparenttextures.com/patterns/carbon-fibre.png")]' : ''}`}>
+                  {rembgData.result.image ? <img src={rembgData.result.image} className="h-full w-full object-contain drop-shadow-2xl" /> : <span className="text-zinc-800 text-[10px] uppercase animate-pulse">Awaiting Stream...</span>}
+                </div>
               </div>
+              
               <div className="bg-zinc-950 border-2 border-[#00ffff]/20 p-4 rounded-sm aspect-video flex items-center justify-center overflow-hidden relative shadow-2xl">
-                <div className="absolute top-2 left-2 text-[10px] text-[#00ffff] font-bold uppercase tracking-widest bg-black/60 px-2 py-1 border border-[#00ffff]/20 z-10">Alpha_Channel_Mask</div>
-                {rembgData.result.mask ? (
-                  <img src={rembgData.result.mask} className="h-full w-full object-contain brightness-125 hue-rotate-180" alt="Mask" />
-                ) : (
-                  <span className="text-zinc-800 text-[10px] uppercase tracking-[0.5em]">Empty_Mask_Buffer</span>
-                )}
+                <div className="absolute top-2 left-2 text-[10px] text-[#00ffff] font-bold uppercase tracking-widest bg-black/60 px-2 py-1 border border-[#00ffff]/20 z-10">Alpha_Mask</div>
+                {rembgData.result.mask ? <img src={rembgData.result.mask} className="h-full w-full object-contain brightness-125 hue-rotate-180" /> : <span className="text-zinc-800 text-[10px] uppercase tracking-[0.5em]">Empty_Mask_Buffer</span>}
               </div>
             </div>
           </div>
