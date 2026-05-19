@@ -161,28 +161,47 @@ const FaceRecognitionModule = ({ activeTab }) => {
     img.src = dataUrl;
   };
 
-  // Logika Start/Stop Camera untuk RemBG (Gunakan pola polling yang sama)
+  // Logika Start/Stop Camera khusus untuk fitur RemBG (Hapus Background)
   const toggleRembgCamera = () => {
+    // 1. Jika stream sedang aktif, segera hentikan
     if (rembgData.isLiveActive) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
       setRembgData(prev => ({ ...prev, isLiveActive: false }));
-    } else {
+      addLog("Sensor optik RemBG dinonaktifkan.", "info");
+    } 
+    // 2. Jika stream sedang mati, aktifkan polling baru
+    else {
       setRembgData(prev => ({ ...prev, isLiveActive: true }));
+      addLog("Memulai stream sensor untuk dekoding background...", "success");
+      
+      // Pastikan interval sebelumnya benar-benar bersih
+      if (pollingRef.current) clearInterval(pollingRef.current);
+
       pollingRef.current = setInterval(async () => {
         try {
-          const response = await fetch(`${baseUrl}/api/face/capture?t=${Date.now()}`);
+          const timestamp = Date.now();
+          // Menambahkan parameter 't' agar browser selalu menarik gambar terbaru (streaming)
+          const response = await fetch(`${baseUrl}/api/face/capture?t=${timestamp}`);
+          
           if (response.ok) {
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
+            
+            // Update state rembgData agar preview gambar di UI bergerak
             setRembgData(prev => ({ 
               ...prev, 
               previewUrl: url, 
-              selectedFile: new File([blob], "rembg_live.jpg", { type: "image/jpeg" }) 
+              // Bungkus blob ke dalam objek File agar siap dikirim ke API RemBG
+              selectedFile: new File([blob], `rembg_stream_${timestamp}.jpg`, { type: "image/jpeg" }) 
             }));
           }
-        } catch (err) { console.error(err); }
-      }, 200);
+        } catch (err) {
+          console.error("RemBG Polling Error:", err);
+        }
+      }, 200); // Kecepatan polling 5 FPS untuk efisiensi
     }
   };
 

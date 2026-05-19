@@ -56,6 +56,58 @@ export default function App() {
     cpu: 24, gpu: 12, ram: "4.8 / 16.0 GB", storage: "128 / 512 GB", firmware: "v2.8.5-LTS"
   });
 
+  
+    // --- INDIKATOR BATERAI REALTIME PERANGKAT (WEB BATTERY API) ---
+    const [battery, setBattery] = useState({ level: 100, charging: false, statusText: 'System Optimal' });
+  
+    useEffect(() => {
+      if (typeof window !== 'undefined' && navigator.getBattery) {
+        navigator.getBattery().then((batt) => {
+          const updateBatteryStatus = () => {
+            let levelPercentage = Math.floor(batt.level * 100);
+            let statusText = 'System Optimal';
+  
+            if (levelPercentage === 100) {
+              statusText = 'Fully Charged';
+            } else if (batt.charging) {
+              statusText = 'Charging...';
+            } else if (levelPercentage <= 20) {
+              statusText = 'Low Battery';
+            } else if (levelPercentage <= 45) {
+              statusText = 'Warning: Power Drifting';
+            }
+  
+            setBattery({
+              level: levelPercentage,
+              charging: batt.charging,
+              statusText: statusText
+            });
+          };
+  
+          // Inisialisasi awal saat komponen dimuat
+          updateBatteryStatus();
+  
+          // Daftarkan Event Listeners hardware ke browser secara realtime
+          batt.addEventListener('chargingchange', updateBatteryStatus);
+          batt.addEventListener('levelchange', updateBatteryStatus);
+  
+          return () => {
+            batt.removeEventListener('chargingchange', updateBatteryStatus);
+            batt.removeEventListener('levelchange', updateBatteryStatus);
+          };
+        });
+      }
+    }, []);
+  
+    // Fungsi dinamis pembantu untuk merubah warna kelas gradasi bar pengisi baterai
+    const getBatteryColorClass = (level, charging) => {
+      if (charging) return 'from-emerald-600 to-green-400 shadow-[0_0_10px_#10b981]';
+      if (level <= 20) return 'from-red-600 to-rose-500 shadow-[0_0_10px_#f43f5e]';
+      if (level <= 40) return 'from-orange-600 to-amber-500 shadow-[0_0_10px_#f97316]';
+      if (level <= 80) return 'from-yellow-500 to-yellow-300 shadow-[0_0_10px_#eab308]';
+      return 'from-cyan-600 to-[#00ffff] shadow-[0_0_10px_#00ffff]';
+    };
+
   const handleSystemAction = (type) => {
     setConfirmAction({ 
         show: true, 
@@ -537,6 +589,35 @@ const handleRegisterSubmit = async (e) => {
         
         <div className="flex items-center space-x-4 sm:space-x-6 shrink-0">
             {/* Tombol Kontrol Sistem di Footer */}
+
+          {/* REALTIME HARDWARE POWER MANAGEMENT LAYER */}
+          <div className="w-[200px] bg-zinc-950/80 border-1 p-1 border-[#00ffff]/20 rounded-sm shadow-xl backdrop-blur-md font-mono flex flex-col gap-1 text-left select-none transition-all hover:border-[#00ffff]/50">
+            <div className="flex justify-between items-end leading-none">
+              <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">LEVEL BATERAI</span>
+              <span className={`text-sm font-black tracking-tighter leading-none ${
+                battery.level <= 20 && !battery.charging ? 'text-rose-500 animate-pulse' : battery.charging ? 'text-emerald-400' : 'text-[#00ffff]'
+              }`}>
+                {battery.level}%
+              </span>
+            </div>
+
+            {/* Rumah Pill Baterai */}
+            <div className="w-full h-[12px] bg-black border border-zinc-800 rounded-sm p-[1px] relative overflow-hidden">
+              {/* Cairan Level Baterai Asli (Dinamis Width & Gradasi Mengikuti API Browser) */}
+              <div 
+                className={`h-full bg-gradient-to-r rounded-sm transition-all duration-1000 ${getBatteryColorClass(battery.level, battery.charging)}`}
+                style={{ width: `${battery.level}%` }}
+              />
+            </div>
+
+            {/* Status Keterangan Kondisi Realtime Daya Perangkat */}
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight leading-none">
+              <span className={battery.level <= 25 && !battery.charging ? 'text-rose-400 animate-pulse' : battery.charging ? 'text-emerald-400' : 'text-zinc-500'}>
+                {battery.charging ? '⚡ CHARGING' : `> ${battery.statusText}`}
+              </span>
+            </div>
+          </div>
+
           <div className="flex space-x-3 shrink-0">
             <button 
               onClick={() => handleSystemAction('shutdown')}

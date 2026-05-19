@@ -159,6 +159,57 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
 
   // Tambahkan di dalam fungsi App()
   const [confirmAction, setConfirmAction] = useState({ show: false, type: '', message: '' });
+
+  // --- INDIKATOR BATERAI REALTIME PERANGKAT (WEB BATTERY API) ---
+  const [battery, setBattery] = useState({ level: 100, charging: false, statusText: 'System Optimal' });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.getBattery) {
+      navigator.getBattery().then((batt) => {
+        const updateBatteryStatus = () => {
+          let levelPercentage = Math.floor(batt.level * 100);
+          let statusText = 'System Optimal';
+
+          if (levelPercentage === 100) {
+            statusText = 'Fully Charged';
+          } else if (batt.charging) {
+            statusText = 'Charging...';
+          } else if (levelPercentage <= 20) {
+            statusText = 'Low Battery';
+          } else if (levelPercentage <= 45) {
+            statusText = 'Warning: Power Drifting';
+          }
+
+          setBattery({
+            level: levelPercentage,
+            charging: batt.charging,
+            statusText: statusText
+          });
+        };
+
+        // Inisialisasi awal saat komponen dimuat
+        updateBatteryStatus();
+
+        // Daftarkan Event Listeners hardware ke browser secara realtime
+        batt.addEventListener('chargingchange', updateBatteryStatus);
+        batt.addEventListener('levelchange', updateBatteryStatus);
+
+        return () => {
+          batt.removeEventListener('chargingchange', updateBatteryStatus);
+          batt.removeEventListener('levelchange', updateBatteryStatus);
+        };
+      });
+    }
+  }, []);
+
+  // Fungsi dinamis pembantu untuk merubah warna kelas gradasi bar pengisi baterai
+  const getBatteryColorClass = (level, charging) => {
+    if (charging) return 'from-emerald-600 to-green-400 shadow-[0_0_10px_#10b981]';
+    if (level <= 20) return 'from-red-600 to-rose-500 shadow-[0_0_10px_#f43f5e]';
+    if (level <= 40) return 'from-orange-600 to-amber-500 shadow-[0_0_10px_#f97316]';
+    if (level <= 80) return 'from-yellow-500 to-yellow-300 shadow-[0_0_10px_#eab308]';
+    return 'from-cyan-600 to-[#00ffff] shadow-[0_0_10px_#00ffff]';
+  };
   
   const handleSystemAction = (type) => {
     setConfirmAction({ 
@@ -388,23 +439,61 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
         <div className="absolute bottom-10 right-10 w-20 h-20 border-b-4 border-r-4 border-[#00ffff]/20" />
       </div>
 
-      {/* Tombol Kontrol Sistem di Pojok Kanan Bawah */}
-      <div className="absolute bottom-15 right-15 z-[1010] flex space-x-3 pointer-events-auto">
-        <button 
-          onClick={() => handleSystemAction('shutdown')}
-          className="group flex items-center gap-2 px-4 py-2 border-2 border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-lg bg-black/20 backdrop-blur-md"
-        >
-          <Power className="w-4 h-4 group-hover:animate-pulse" />
-          <span className="hidden sm:inline">Shutdown</span>
-        </button>
+      {/* TOMBOL KONTROL SISTEM & INDIKATOR BATERAI REALTIME (POJOK KANAN BAWAH) */}
+      <div className="absolute bottom-15 right-15 z-[1010] flex flex-col items-end gap-4 pointer-events-auto">
+        
+        {/* PANEL INTELLIGENT HARDWARE POWER MANAGEMENT */}
+        <div className="w-[280px] bg-zinc-950/80 border-2 border-[#00ffff]/20 p-3 rounded-sm shadow-xl backdrop-blur-md font-mono flex flex-col gap-1.5 transition-all hover:border-[#00ffff]/50">
+          <div className="flex justify-between items-end">
+            <span className="text-[12px] text-zinc-300 font-bold uppercase tracking-wider">LEVEL BATERAI</span>
+            <span className={`text-lg font-black tracking-tighter ${
+              battery.level <= 20 && !battery.charging ? 'text-rose-500 animate-pulse' : battery.charging ? 'text-emerald-400' : 'text-[#00ffff]'
+            }`}>
+              {battery.level}%
+            </span>
+          </div>
 
-        <button 
-          onClick={() => handleSystemAction('restart')}
-          className="group flex items-center gap-2 px-4 py-2 border-2 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-lg bg-black/20 backdrop-blur-md"
-        >
-          <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-          <span className="hidden sm:inline">Restart</span>
-        </button>
+          {/* Rumah Pill Wadah Baterai */}
+          <div className="w-full h-[24px] bg-black border border-zinc-800 rounded-sm p-[2px] relative overflow-hidden">
+            {/* Cairan Level Baterai Asli (Dinamis Width & Gradasi Mengikuti API Browser) */}
+            <div 
+              className={`h-full bg-gradient-to-r rounded-sm transition-all duration-700 ${getBatteryColorClass(battery.level, battery.charging)}`}
+              style={{ width: `${battery.level}%` }}
+            />
+          </div>
+
+          {/* Status Keterangan Kondisi Realtime Daya Perangkat */}
+          <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
+            <span className={battery.level <= 25 && !battery.charging ? 'text-rose-400 animate-pulse' : battery.charging ? 'text-emerald-400' : 'text-zinc-500'}>
+              &gt; {battery.statusText}
+            </span>
+            {battery.charging && (
+              <span className="text-emerald-400 text-[10px] border border-emerald-500/30 px-1 bg-emerald-500/10 rounded-sm animate-pulse flex items-center gap-1">
+                ⚡ ADAPTOR TERPASANG
+              </span>
+            )}
+          </div>
+          
+          {/* TOMBOL SHUTDOWN & RESTART */}
+          <div className="flex space-x-3 pt-5 border-t border-[#00ffff]/10 mt-1">
+            <button 
+              onClick={() => handleSystemAction('shutdown')}
+              className="group flex items-center gap-2 px-4 py-2 border-2 border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-lg bg-black/20 backdrop-blur-md"
+            >
+              <Power className="w-4 h-4 group-hover:animate-pulse" />
+              <span className="hidden sm:inline">Shutdown</span>
+            </button>
+
+            <button 
+              onClick={() => handleSystemAction('restart')}
+              className="group flex items-center gap-2 px-4 py-2 border-2 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-lg bg-black/20 backdrop-blur-md"
+            >
+              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+              <span className="hidden sm:inline">Restart</span>
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <style jsx>{`

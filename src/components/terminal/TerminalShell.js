@@ -108,9 +108,93 @@ const TerminalShell = ({
           <span className="flex items-center gap-2"><User size={14} className="text-[#00ffff]/50" /> root_access</span>
           <span className="flex items-center gap-2"><Wifi size={14} className="text-[#00ffff]/50" /> mesh_secure</span> */}
         </div>
-        <div className="text-[#00ffff] drop-shadow-[0_0_5px_#00ffff] tracking-[0.5em] font-black uppercase">
+        {/* <div className="text-[#00ffff] drop-shadow-[0_0_5px_#00ffff] tracking-[0.5em] font-black uppercase">
           System_Synchronized
-        </div>
+        </div> */}
+
+        {/* KODE BARU: Mengganti System_Synchronized dengan Indikator Baterai Dummy */}
+        {/* REALTIME BATTERY INDICATOR LAYER */}
+        <React.Fragment>
+          {(() => {
+            // Hook State Lokal untuk membaca data baterai perangkat
+            const [systemBattery, setSystemBattery] = React.useState({ level: 100, charging: false });
+
+            React.useEffect(() => {
+              if (typeof window !== 'undefined' && navigator.getBattery) {
+                navigator.getBattery().then((batt) => {
+                  const updateBatteryStatus = () => {
+                    setSystemBattery({
+                      level: Math.floor(batt.level * 100),
+                      charging: batt.charging
+                    });
+                  };
+
+                  // Jalankan fungsi saat inisialisasi pertama kali
+                  updateBatteryStatus();
+
+                  // Daftarkan event listener untuk perubahan status daya realtime
+                  batt.addEventListener('chargingchange', updateBatteryStatus);
+                  batt.addEventListener('levelchange', updateBatteryStatus);
+
+                  return () => {
+                    batt.removeEventListener('chargingchange', updateBatteryStatus);
+                    batt.removeEventListener('levelchange', updateBatteryStatus);
+                  };
+                });
+              }
+            }, []);
+
+            // Logika seleksi string teks status berdasarkan level & kondisi pengisian daya
+            let batteryStatusText = "SECURE";
+            if (systemBattery.level === 100) {
+              batteryStatusText = "FULLY CHARGED";
+            } else if (systemBattery.charging) {
+              batteryStatusText = "CHARGING...";
+            } else if (systemBattery.level <= 20) {
+              batteryStatusText = "LOW BATTERY";
+            }
+
+            // Logika penyesuaian warna indikator cairan baterai isi (Fill Color)
+            let batteryFillColor = "#00ffff"; // Default Cyan untuk level normal
+            if (systemBattery.level <= 20) {
+              batteryFillColor = "#ef4444"; // Merah saat Low Battery
+            } else if (systemBattery.level <= 40) {
+              batteryFillColor = "#f97316"; // Oranye
+            } else if (systemBattery.charging) {
+              batteryFillColor = "#10b981"; // Hijau saat Mengisi Daya
+            }
+
+            return (
+              <div className="flex items-center gap-2 text-[#00ffff] drop-shadow-[0_0_5px_#00ffff] font-black uppercase tracking-[0.2em] text-xs">
+                {/* SVG Rumah Baterai Kustom */}
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2.5" 
+                  className={`w-4 h-4 ${systemBattery.charging || systemBattery.level <= 20 ? 'animate-pulse' : ''}`}
+                >
+                  <rect x="2" y="7" width="16" height="10" rx="1" />
+                  <line x1="22" y1="11" x2="22" y2="13" />
+                  {/* Dinamis Width dan Fill Color berdasarkan level baterai asli */}
+                  <rect 
+                    x="4" 
+                    y="9" 
+                    width={Math.max(1, (systemBattery.level / 100) * 12)} 
+                    height="6" 
+                    fill={batteryFillColor} 
+                    stroke="none"
+                    style={{ transition: 'width 0.5s ease-in-out' }}
+                  />
+                </svg>
+                <span>
+                  BATTERY_LEVEL: {systemBattery.level}% [{batteryStatusText}]
+                </span>
+              </div>
+            );
+          })()}
+        </React.Fragment>
       </div>
 
       <style jsx global>{`
