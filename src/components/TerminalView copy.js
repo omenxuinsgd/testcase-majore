@@ -76,9 +76,6 @@ const TerminalView = (props) => {
   // FIX: consoleLogs dimulai kosong untuk sinkronisasi hidrasi Next.js
   const [consoleLogs, setConsoleLogs] = useState([]);
 
-  // --- KUNCI PERBAIKAN: DEKLARASI STATE YANG HILANG ---
-  const [liveOverlayCorners, setLiveOverlayCorners] = useState(null);
-
   const addLog = (message) => {
     setConsoleLogs(prev => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev].slice(0, 20));
   };
@@ -116,38 +113,18 @@ const TerminalView = (props) => {
       else addLog("PEMINDAIAN_SELESAI.");
     };
 
-    // const handleUpdatePreview = (e) => {
-    //   if (e.detail) {
-    //     setPreviewImage(e.detail);
-    //     if (e.detail.startsWith('data:image') && e.detail.length > 1000) {
-    //       setIsLiveStream(true);
-    //     } else {
-    //       setIsLiveStream(false);
-    //       addLog("PREVIEW_VISUAL_DIPERBARUI");
-    //     }
-    //   } else {
-    //     setPreviewImage(props.data?.image);
-    //     setIsLiveStream(false);
-    //   }
-    // };
-
-    // PERBAIKAN: Deteksi Live Stream Berdasarkan Ukuran Data URL (Hanya untuk gambar, bukan string pendek)
     const handleUpdatePreview = (e) => {
       if (e.detail) {
         setPreviewImage(e.detail);
-        // Memastikan tipe data string base64 webcam maupun CZUR dikenali sebagai aliran Live Stream aktif
         if (e.detail.startsWith('data:image') && e.detail.length > 1000) {
           setIsLiveStream(true);
         } else {
           setIsLiveStream(false);
-          setLiveOverlayCorners(null); // KUNCI: Bersihkan sisa koordinat jika bukan live stream reguler
           addLog("PREVIEW_VISUAL_DIPERBARUI");
         }
       } else {
-        // Jika parameter detail berisikan null (Kamera Dimatikan)
         setPreviewImage(props.data?.image);
         setIsLiveStream(false);
-        setLiveOverlayCorners(null); // KUNCI: Pastikan border otomatis runtuh/hilang saat sensor mati
       }
     };
 
@@ -160,13 +137,6 @@ const TerminalView = (props) => {
     window.addEventListener('signpad:data-reset', handleSignPadReset);
     window.addEventListener('scanner:logs-sync', handleScannerLogs);
 
-    const handleLiveCornersSync = (event) => {
-      setLiveOverlayCorners(event.detail); // Data koordinat dari Flask API
-    };
-
-    // Daftarkan di dalam useEffect
-    window.addEventListener('scanner:live-corners-sync', handleLiveCornersSync);
-
     return () => {
       window.removeEventListener('palm:scanning-state', handleScanningState);
       window.removeEventListener('terminal:update-preview', handleUpdatePreview);
@@ -174,7 +144,6 @@ const TerminalView = (props) => {
       window.removeEventListener('signpad:data-ready', handleSignPadReady);
       window.removeEventListener('signpad:data-reset', handleSignPadReset);
       window.removeEventListener('scanner:logs-sync', handleScannerLogs);
-      window.removeEventListener('scanner:live-corners-sync', handleLiveCornersSync);
     };
   }, [props.data?.image, shortTitle]);
 
@@ -373,34 +342,15 @@ const TerminalView = (props) => {
              />
           </div>
         ) : (
-          
-          <div className="w-full h-full relative"> 
-            <AnimatePresence mode="popLayout">
-              <motion.img 
-                key={isLiveStream ? 'live-feed' : previewImage} 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: isLiveStream ? 0 : 0.4 }}
-                src={previewImage || previewUrl || props.data?.image} 
-                alt="Visual State" className="w-full h-full object-cover bg-black" 
-              />
-            </AnimatePresence>
-
-            {/* --- TAMBAHAN: LAPISAN OVERLAY REALTIME BORDER CORNER GREEN DASHED LINES --- */}
-            {isLiveStream && isDocScanner && liveOverlayCorners && (
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-30" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <polygon 
-                  points={`${liveOverlayCorners.tl.x},${liveOverlayCorners.tl.y} ${liveOverlayCorners.tr.x},${liveOverlayCorners.tr.y} ${liveOverlayCorners.br.x},${liveOverlayCorners.br.y} ${liveOverlayCorners.bl.x},${liveOverlayCorners.bl.y}`}
-                  className="fill-none stroke-emerald-400 stroke-[2] animate-pulse"
-                  style={{ strokeDasharray: '3,2' }}
-                />
-                {/* Pin Penanda Titik Jangkar Sudut Gading */}
-                <circle cx={liveOverlayCorners.tl.x} cy={liveOverlayCorners.tl.y} r="1.5" className="fill-[#00ffff] stroke-white stroke-[0.3]" />
-                <circle cx={liveOverlayCorners.tr.x} cy={liveOverlayCorners.tr.y} r="1.5" className="fill-[#00ffff] stroke-white stroke-[0.3]" />
-                <circle cx={liveOverlayCorners.br.x} cy={liveOverlayCorners.br.y} r="1.5" className="fill-[#00ffff] stroke-white stroke-[0.3]" />
-                <circle cx={liveOverlayCorners.bl.x} cy={liveOverlayCorners.bl.y} r="1.5" className="fill-[#00ffff] stroke-white stroke-[0.3]" />
-              </svg>
-            )}
-          </div>
+          <AnimatePresence mode="popLayout">
+            <motion.img 
+              key={isLiveStream ? 'live-feed' : previewImage} 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: isLiveStream ? 0 : 0.4 }}
+              src={previewImage || previewUrl || props.data?.image} 
+              alt="Visual State" className="w-full h-full object-cover bg-black" 
+            />
+          </AnimatePresence>
         )}
         
         {/* Tombol Khusus Sign Pad Overlay */}
