@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, Square, Wifi, WifiOff, Maximize2, Link as LinkIcon, Key, Database, RefreshCw, 
   Activity, FileText, Camera, Loader2, X, Settings, CameraIcon, Layers, FolderOpen, 
-  Search, ShieldCheck, Crop, Trash2, CheckCircle, Download, Sparkles, Video
+  Search, ShieldCheck, Crop, Trash2, CheckCircle, Download, Sparkles, Video, Eye, EyeOff, ImageIcon, FileIcon, FileTextIcon, FileZipIcon, FileAudioIcon, FileVideoIcon
 } from 'lucide-react';
 
 // === SOLVER MATRIKS PERSAMAAN LINIER UNTUK PERSPEKTIF WARPING ===
@@ -84,8 +84,19 @@ const DocumentScannerModule = ({ data }) => {
   const [liveCorners, setLiveCorners] = useState(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const [stableFrames, setStableFrames] = useState(0);
-  
 
+  // --- STATE MODAL ZOOM LIGHTBOX BARU ---
+  const [zoomImage, setZoomImage] = useState(null); // Menampung data gambar yang di-zoom
+  const [zoomScale, setZoomScale] = useState(1);    // Kontrol level zoom-in / zoom-out
+
+  // --- STATE TAB BARU: VIEW DOCUMENT ---
+  const [viewDocumentFile, setViewDocumentFile] = useState(null); // Menampung Data URL / Base64 Berkas
+  const [viewDocumentName, setViewDocumentName] = useState("");   // Menampung Nama File Fisik
+  const [viewDocumentType, setViewDocumentType] = useState("");   // Menampung Tipe 'pdf' atau 'image'
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);  // Mengontrol Buka/Tutup Popup Preview
+
+  const fileInputRef = useRef(null); // Referensi untuk men-trigger click pada input file hidden
+  
   const wsCmd = useRef(null);
   const wsMc = useRef(null);
   const previewCanvasRef = useRef(null);
@@ -677,6 +688,34 @@ const DocumentScannerModule = ({ data }) => {
     finally { setIsExporting(false); }
   };
 
+  // --- LOGIKA TAB VIEW DOCUMENT BARU ---
+  const handleFileBrowseChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setViewDocumentName(file.name);
+    const fileExt = file.name.split('.').pop().toLowerCase();
+    
+    // Deteksi tipe file secara otomatis
+    if (fileExt === 'pdf') {
+      setViewDocumentType('pdf');
+    } else if (['png', 'jpg', 'jpeg', 'jfif'].includes(fileExt)) {
+      setViewDocumentType('image');
+    } else {
+      showToast("Format berkas tidak didukung! Gunakan PDF atau Gambar.", "error");
+      addLog(`Gagal memuat berkas ${file.name}. Format tidak valid.`, "error");
+      return;
+    }
+
+    // Membaca file lokal menjadi format Data URL / Base64
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setViewDocumentFile(event.target.result);
+      addLog(`Berkas ${file.name} berhasil dimuat ke memori virtual.`, "success");
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar font-mono text-left">
       <AnimatePresence>
@@ -789,32 +828,31 @@ const DocumentScannerModule = ({ data }) => {
           <button onClick={() => setActiveBottomTab('scan_control')} className={`px-6 py-2.5 text-[14px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all border-r border-[#00ffff]/10 ${activeBottomTab === 'scan_control' ? 'bg-[#00ffff] text-black' : 'text-[#00ffff]/70 hover:text-[#00ffff] hover:bg-zinc-800'}`}>
             <CameraIcon size={14} /> Document Processing Terminal
           </button>
-          <button onClick={() => setActiveBottomTab('gallery')} className={`px-6 py-2.5 text-[14px] font-black uppercase tracking-[0.1em] flex items-center border-r-1 gap-2 transition-all ${activeBottomTab === 'gallery' ? 'bg-[#00ffff] text-black' : 'text-[#00ffff]/70 hover:text-[#00ffff] hover:bg-zinc-800'}`}>
+          <button onClick={() => setActiveBottomTab('gallery')} className={`px-6 py-2.5 text-[14px] font-black uppercase tracking-[0.1em] flex items-center border-1 gap-2 transition-all ${activeBottomTab === 'gallery' ? 'bg-[#00ffff] text-black' : 'text-[#00ffff]/70 hover:text-[#00ffff] hover:bg-zinc-800'}`}>
             <Layers size={14} /> Captured Gallery ({capturedList.length})
+          </button>
+          {/* TAB MENUBAR BARU: VIEW DOCUMENT */}
+          <button 
+            onClick={() => setActiveBottomTab('view_document')} 
+            className={`px-6 py-2.5 text-[14px] font-black uppercase border-1 tracking-[0.1em] flex items-center gap-2 transition-all ${
+              activeBottomTab === 'view_document' ? 'bg-[#00ffff] text-black' : 'text-[#00ffff]/70 hover:text-[#00ffff] hover:bg-zinc-800'
+            }`}
+          >
+            <FolderOpen size={14} /> View Document
           </button>
         </div>
 
         <div className="p-6 flex-1 flex flex-col relative overflow-hidden bg-black/20">
-          {activeBottomTab === 'scan_control' ? (
+          
+          {/* ==================== TAB 1: DOCUMENT PROCESSING TERMINAL ==================== */}
+          {activeBottomTab === 'scan_control' && (
             <div className="flex-1 flex flex-col justify-between animate-in fade-in duration-300">
-              {/* {!originalImage && !capturedImage && (
-                <div className="flex justify-center mb-4">
-                  <div className="bg-zinc-900 p-1 rounded-sm border border-[#00ffff]/20 flex gap-1">
-                    <button onClick={() => { setDetectionMode('manual'); setStableFrames(0); }} className={`px-6 py-1.5 text-xs font-bold uppercase transition-all ${detectionMode === 'manual' ? 'bg-[#00ffff] text-black' : 'text-zinc-500 hover:text-white'}`}>Manual Mode</button>
-                    <button onClick={() => { setDetectionMode('auto'); setStableFrames(0); }} className={`px-6 py-1.5 text-xs font-bold uppercase transition-all ${detectionMode === 'auto' ? 'bg-emerald-600 text-white' : 'text-zinc-500 hover:text-white'}`}>Auto Capture</button>
-                  </div>
-                </div>
-              )} */}
-
-              {/* STAGE 1: DRAG MANUAL ADJUSTMENT SCREEN */}
+              
               {/* STAGE 1: DRAG MANUAL ADJUSTMENT SCREEN */}
               {isAdjusting && originalImage && (
                 <div className="flex-1 flex flex-col items-center justify-center border border-[#00ffff]/10 p-4 rounded-sm bg-black/40">
                   <div ref={adjustContainerRef} className="relative inline-block border border-[#00ffff]/30 bg-zinc-950 shadow-2xl rounded-sm max-h-[320px]">
-                    {/* Pastikan gambar menggunakan w-auto dan h-auto agar aspek rasio aslinya terjaga di dalam kontainer */}
                     <img src={originalImage} className="max-h-[320px] w-auto max-w-full block pointer-events-none" alt="Buffer Snapshot" />
-                    
-                    {/* SVG Sekarang akan mengikuti ukuran presisi dari gambar di atasnya secara real-time */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                       <polygon points={`${adjustableCorners.tl.x},${adjustableCorners.tl.y} ${adjustableCorners.tr.x},${adjustableCorners.tr.y} ${adjustableCorners.br.x},${adjustableCorners.br.y} ${adjustableCorners.bl.x},${adjustableCorners.bl.y}`} className="fill-[#00ffff]/10 stroke-[#00ffff] stroke-2" />
                     </svg>
@@ -880,10 +918,13 @@ const DocumentScannerModule = ({ data }) => {
                 </div>
               )}
             </div>
-          ) : (
-            /* GALERI PENAMPUNG FILE */
+          )}
+
+          {/* ==================== TAB 2: CAPTURED GALLERY ==================== */}
+          {activeBottomTab === 'gallery' && (
             <div className="flex-1 flex flex-col justify-between animate-in slide-in-from-right-4 duration-300">
               {capturedList.length === 0 ? (
+                /* Pesan galeri kosong diisolasi penuh di sini */
                 <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 py-16 opacity-30">
                   <FileText size={48} className="text-zinc-700 mb-2" />
                   <span className="text-[11px] font-black uppercase tracking-widest">Belum ada dokumen yang dipindai</span>
@@ -892,36 +933,24 @@ const DocumentScannerModule = ({ data }) => {
                 <div className="flex-1 flex flex-col gap-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                     {[...capturedList].reverse().map((item, idx) => {
-                      // Menghitung indeks asli dokumen agar nama file dan label teks sinkron
                       const docIndex = capturedList.length - idx;
-
                       return (
                         <div key={item.id} className="bg-zinc-900/60 border border-[#00ffff]/10 p-2 rounded-sm flex flex-col group relative">
-                          <div className="aspect-[4/4] overflow-hidden bg-black mb-2 border border-zinc-800">
+                          <div 
+                            onClick={() => { setZoomImage(item.data); setZoomScale(1); }} 
+                            className="aspect-[4/4] overflow-hidden bg-black mb-2 border border-zinc-800 cursor-zoom-in relative group/img"
+                            title="Klik untuk Zoom"
+                          >
                             <img src={item.data} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="Scan Part" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity duration-200">
+                              <Search size={20} className="text-[#00ffff]" />
+                            </div>
                           </div>
                           <div className="flex items-center justify-between mt-auto">
                             <span className="text-[14px] text-zinc-500 font-bold">DOC_{docIndex}</span>
-                            
-                            {/* CONTAINER ACTION BUTTONS */}
                             <div className="flex items-center gap-2">
-                              {/* TOMBOL UNDUH JPG BARU */}
-                              <button 
-                                onClick={() => handleDownloadJPG(item.data, docIndex)} 
-                                className="text-emerald-400 hover:text-emerald-300 p-1 transition-colors"
-                                title="Unduh JPG"
-                              >
-                                <Download size={15} />
-                              </button>
-                              
-                              {/* TOMBOL HAPUS */}
-                              <button 
-                                onClick={() => setCapturedList(capturedList.filter(l => l.id !== item.id))} 
-                                className="text-rose-500 hover:text-rose-400 p-1 transition-colors"
-                                title="Hapus"
-                              >
-                                <Trash2 size={15} />
-                              </button>
+                              <button onClick={() => handleDownloadJPG(item.data, docIndex)} className="text-emerald-400 hover:text-emerald-300 p-1 transition-colors" title="Unduh JPG"><Download size={15} /></button>
+                              <button onClick={() => setCapturedList(capturedList.filter(l => l.id !== item.id))} className="text-rose-500 hover:text-rose-400 p-1 transition-colors" title="Hapus"><Trash2 size={15} /></button>
                             </div>
                           </div>
                         </div>
@@ -938,6 +967,48 @@ const DocumentScannerModule = ({ data }) => {
             </div>
           )}
 
+          {/* ==================== TAB 3: VIEW DOCUMENT INTERFACE PANEL ==================== */}
+          {activeBottomTab === 'view_document' && (
+            <div className="flex-1 flex flex-col justify-center items-center border border-dashed border-[#00ffff]/20 p-8 rounded-sm bg-black/10 animate-in slide-in-from-right-4 duration-300 min-h-[300px]">
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileBrowseChange}
+                accept=".pdf, image/png, image/jpeg, image/jpg, image/jfif"
+                className="hidden" 
+              />
+              
+              <div className="text-center max-w-md flex flex-col items-center">
+                <FolderOpen size={44} className="text-zinc-600 mb-4 animate-bounce" />
+                <h3 className="text-xs font-black uppercase text-[#00ffff] tracking-widest mb-1">M-One Local Document Explorer</h3>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-6">Pilih berkas dari storage internal Anda untuk dirender dalam sistem visualisasi.</p>
+                
+                <button 
+                  onClick={() => fileInputRef.current.click()}
+                  className="px-8 py-3 bg-[#00ffff]/10 border-2 border-[#00ffff] text-[#00ffff] hover:bg-[#00ffff] hover:text-black font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,255,255,0.1)] rounded-sm"
+                >
+                  Browse File Folder
+                </button>
+
+                {viewDocumentFile && (
+                  <div className="mt-8 p-3 bg-zinc-900/90 border border-zinc-800 rounded-sm w-full flex flex-col gap-3 items-center animate-in zoom-in-95">
+                    <div className="flex items-center gap-2 overflow-hidden w-full justify-center">
+                      <FileText size={14} className="text-emerald-400 shrink-0" />
+                      <span className="text-[11px] text-zinc-300 truncate font-bold uppercase tracking-wider">{viewDocumentName}</span>
+                    </div>
+                    
+                    <button 
+                      onClick={() => setIsViewModalOpen(true)}
+                      className="w-full py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-emerald-500 transition-colors flex items-center justify-center gap-1.5 shadow-md"
+                    >
+                      <Eye size={12} /> View Document Render
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* FOOTER METADATA TERMINAL */}
           {/* <div className="mt-auto flex justify-between items-center border-t border-[#00ffff]/5 pt-4">
             <div className="flex items-center gap-2">
@@ -948,6 +1019,141 @@ const DocumentScannerModule = ({ data }) => {
           </div> */}
         </div>
       </div>
+
+      {/* ================= MODAL INTERAKTIF ZOOM POPUP (LIGHTBOX) ================= */}
+      <AnimatePresence>
+        {zoomImage && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-black/95 p-4 backdrop-blur-md"
+          >
+            {/* Tombol Close Pojok Kanan Atas */}
+            <button 
+              onClick={() => setZoomImage(null)} 
+              className="absolute top-6 right-6 text-zinc-400 hover:text-white transition-colors bg-zinc-900/80 p-2.5 rounded-full border border-zinc-800 z-50 shadow-xl"
+              title="Tutup (Esc)"
+            >
+              <X size={24} />
+            </button>
+
+            {/* Kontainer Gambar dengan Efek Spring Motion & Transform Scale */}
+            <div className="flex-1 flex items-center justify-center overflow-hidden w-full max-w-4xl p-4">
+              <motion.div 
+                animate={{ scale: zoomScale }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="relative max-w-full max-h-[75vh] select-none flex items-center justify-center shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-zinc-800 bg-zinc-950"
+              >
+                <img 
+                  src={zoomImage} 
+                  className="max-w-full max-h-[75vh] object-contain pointer-events-none" 
+                  alt="Zoomed Preview" 
+                />
+              </motion.div>
+            </div>
+
+            {/* Panel Kontrol Zoom & Batas Skala di Bagian Bawah */}
+            <div className="mb-6 bg-zinc-900/90 border border-[#00ffff]/30 px-6 py-3 rounded-full flex items-center gap-6 shadow-2xl backdrop-blur-md">
+              <button 
+                onClick={() => setZoomScale(prev => Math.max(0.5, prev - 0.25))}
+                disabled={zoomScale <= 0.5}
+                className="w-8 h-8 rounded-full border border-zinc-700 text-zinc-400 hover:text-[#00ffff] hover:border-[#00ffff] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-black text-lg transition-all"
+                title="Zoom Out"
+              >
+                -
+              </button>
+              
+              <span className="text-xs text-zinc-400 font-bold min-w-[60px] text-center tracking-widest font-mono">
+                {Math.round(zoomScale * 100)}%
+              </span>
+
+              <button 
+                onClick={() => setZoomScale(prev => Math.min(3, prev + 0.25))}
+                disabled={zoomScale >= 3}
+                className="w-8 h-8 rounded-full border border-zinc-700 text-zinc-400 hover:text-[#00ffff] hover:border-[#00ffff] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-black text-lg transition-all"
+                title="Zoom In"
+              >
+                +
+              </button>
+
+              <div className="w-px h-4 bg-zinc-800"></div>
+
+              {/* Tombol Reset Skala ke 100% */}
+              <button 
+                onClick={() => setZoomScale(1)}
+                className="text-[10px] text-[#00ffff] hover:underline uppercase font-bold tracking-wider"
+              >
+                Reset
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL POPUP TAB VIEW DOCUMENT RENDERER (BARU) ================= */}
+      <AnimatePresence>
+        {isViewModalOpen && viewDocumentFile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10001] flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-zinc-950 border-2 border-[#00ffff]/40 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl relative rounded-sm overflow-hidden"
+            >
+              {/* Header Modal */}
+              <div className="bg-zinc-900 border-b border-[#00ffff]/20 px-6 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2 overflow-hidden mr-4">
+                  <FileText size={16} className="text-[#00ffff]" />
+                  <span className="text-xs font-black uppercase tracking-widest text-[#00ffff] truncate">
+                    Viewer Terminal: {viewDocumentName}
+                  </span>
+                </div>
+                <button onClick={() => setIsViewModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-1 bg-black/40 rounded-sm border border-zinc-800">
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Konten Utama Renderer */}
+              <div className="flex-1 bg-zinc-900/40 relative overflow-auto p-4 flex items-center justify-center">
+                {viewDocumentType === 'pdf' ? (
+                  /* Render PDF menggunakan Iframe bawaan browser */
+                  <iframe 
+                    src={viewDocumentFile} 
+                    className="w-full h-full border-0 bg-zinc-900 rounded-sm"
+                    title="PDF Document Viewer"
+                  />
+                ) : (
+                  /* Render Gambar jika extension berupa citra grafik */
+                  <div className="w-full h-full flex items-center justify-center p-2">
+                    <img 
+                      src={viewDocumentFile} 
+                      className="max-w-full max-h-full object-contain shadow-2xl border border-zinc-800" 
+                      alt="Local Uploaded Render" 
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Modal */}
+              <div className="bg-zinc-950 px-6 py-2 border-t border-zinc-900 flex justify-between items-center">
+                <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">
+                  M-One File System Integration Core v3
+                </span>
+                <button onClick={() => setIsViewModalOpen(false)} className="px-5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 font-black text-[10px] uppercase tracking-widest transition-all rounded-sm">
+                  Close Terminal
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
