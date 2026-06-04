@@ -58,23 +58,31 @@ export default function App() {
 
   
     // --- INDIKATOR BATERAI REALTIME PERANGKAT (WEB BATTERY API) ---
-    const [battery, setBattery] = useState({ level: 100, charging: false, statusText: 'System Optimal' });
+    const [battery, setBattery] = useState({ level: 100, charging: false, statusText: '' });
   
     useEffect(() => {
       if (typeof window !== 'undefined' && navigator.getBattery) {
         navigator.getBattery().then((batt) => {
           const updateBatteryStatus = () => {
             let levelPercentage = Math.floor(batt.level * 100);
-            let statusText = 'System Optimal';
+            let statusText = '';
   
             if (levelPercentage === 100) {
-              statusText = 'Fully Charged';
+              statusText = 'Baterai Penuh';
+              showNotification("Baterai Penuh", "success");
             } else if (batt.charging) {
               statusText = 'Charging...';
+              if(levelPercentage === 100) {
+                showNotification("Baterai Penuh", "success");
+              } else{
+                showNotification("Sedang Mengisi Daya...", "success");
+              }
             } else if (levelPercentage <= 20) {
-              statusText = 'Low Battery';
+              statusText = 'Baterai Lemah';
+              showNotification("Baterai Lemah", "warning");
             } else if (levelPercentage <= 45) {
-              statusText = 'Warning: Power Drifting';
+              statusText = 'Warning: Daya Rendah';
+              showNotification("Daya Rendah", "warning");
             }
   
             setBattery({

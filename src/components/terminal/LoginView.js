@@ -161,24 +161,32 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
   const [confirmAction, setConfirmAction] = useState({ show: false, type: '', message: '' });
 
   // --- INDIKATOR BATERAI REALTIME PERANGKAT (WEB BATTERY API) ---
-  const [battery, setBattery] = useState({ level: 100, charging: false, statusText: 'System Optimal' });
+  const [battery, setBattery] = useState({ level: 100, charging: false, statusText: '' });
 
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.getBattery) {
       navigator.getBattery().then((batt) => {
         const updateBatteryStatus = () => {
           let levelPercentage = Math.floor(batt.level * 100);
-          let statusText = 'System Optimal';
+          let statusText = '';
 
           if (levelPercentage === 100) {
-            statusText = 'Fully Charged';
-          } else if (batt.charging) {
-            statusText = 'Charging...';
-          } else if (levelPercentage <= 20) {
-            statusText = 'Low Battery';
-          } else if (levelPercentage <= 45) {
-            statusText = 'Warning: Power Drifting';
-          }
+              statusText = 'Baterai Penuh';
+              showNotification("Baterai Penuh", "success");
+            } else if (batt.charging) {
+              statusText = 'Charging...';
+              if(levelPercentage === 100) {
+                showNotification("Baterai Penuh", "success");
+              } else{
+                showNotification("Sedang Mengisi Daya...", "success");
+              }
+            } else if (levelPercentage <= 20) {
+              statusText = 'Baterai Lemah';
+              showNotification("Baterai Lemah", "warning");
+            } else if (levelPercentage <= 45) {
+              statusText = 'Warning: Daya Rendah';
+              showNotification("Daya Rendah", "warning");
+            }
 
           setBattery({
             level: levelPercentage,
@@ -447,7 +455,7 @@ const LoginView = ({ onLoginSuccess, isDarkMode }) => {
           <div className="flex justify-between items-end">
             <span className="text-[12px] text-zinc-300 font-bold uppercase tracking-wider">LEVEL BATERAI</span>
             <span className={`text-lg font-black tracking-tighter ${
-              battery.level <= 20 && !battery.charging ? 'text-rose-500 animate-pulse' : battery.charging ? 'text-emerald-400' : 'text-[#00ffff]'
+              battery.level <= 25 && !battery.charging ? 'text-rose-500 animate-pulse' : battery.charging ? 'text-emerald-400' : 'text-[#00ffff]'
             }`}>
               {battery.level}%
             </span>

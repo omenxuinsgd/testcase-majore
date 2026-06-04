@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, Square, Wifi, WifiOff, Maximize2, Link as LinkIcon, Key, Database, RefreshCw, 
   Activity, FileText, Camera, Loader2, X, Settings, CameraIcon, Layers, FolderOpen, 
-  Search, ShieldCheck, Crop, Trash2, CheckCircle, Download, Sparkles, Video, Eye, EyeOff, ImageIcon, FileIcon, FileTextIcon, FileZipIcon, FileAudioIcon, FileVideoIcon
+  Search, ShieldCheck, Crop, Trash2, CheckCircle, Download, Sparkles, Video, Eye, EyeOff, ImageIcon, FileIcon, FileTextIcon, FileZipIcon, FileAudioIcon, FileVideoIcon,
+  User, Users, UserPlus, UserCheck, UserX, AlertTriangle, AlertCircle, Info, HelpCircle
 } from 'lucide-react';
 
 // === SOLVER MATRIKS PERSAMAAN LINIER UNTUK PERSPEKTIF WARPING ===
@@ -94,6 +95,11 @@ const DocumentScannerModule = ({ data }) => {
   const [viewDocumentName, setViewDocumentName] = useState("");   // Menampung Nama File Fisik
   const [viewDocumentType, setViewDocumentType] = useState("");   // Menampung Tipe 'pdf' atau 'image'
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);  // Mengontrol Buka/Tutup Popup Preview
+  const [viewZoomScale, setViewZoomScale] = useState(1);          // STATE BARU: Mengontrol skala zoom pada modal View Document
+  const [isViewFullscreen, setIsViewFullscreen] = useState(false); // STATE BARU: Mengontrol ukuran penuh layar (Maximize)
+
+  // --- STATE BARU: MENAMPUNG PETA RE-NAME NAMA DOKUMEN GALERI ---
+  const [customDocNames, setCustomDocNames] = useState({}); // Menyimpan custom string berbasis item.id   
 
   const fileInputRef = useRef(null); // Referensi untuk men-trigger click pada input file hidden
   
@@ -103,10 +109,41 @@ const DocumentScannerModule = ({ data }) => {
   const adjustContainerRef = useRef(null);
   const lastFrameRef = useRef(null);
 
+  // --- STATE BARU: DATA PERSONEL DARI API & SELEKSI AKTIF ---
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
   // --- SINKRONISASI LOG KE SIDEBAR ---
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('scanner:logs-sync', { detail: logs }));
   }, [logs]);
+
+  // Hook untuk mengambil data personal secara real-time dari API endpoint
+  useEffect(() => {
+    const fetchPersonalData = async () => {
+      try {
+        setIsLoadingUsers(true);
+        const response = await fetch("http://localhost:5160/api/face/data_personal");
+        if (response.ok) {
+          const data = await response.json();
+          // Urutkan berdasarkan UserID untuk kemudahan visual di selectbox
+          const sortedData = data.sort((a, b) => a.UserID - b.UserID);
+          setAvailableUsers(sortedData);
+          if (sortedData.length > 0) {
+            setSelectedUserId(sortedData[0].UserID.toString()); // Set default select ke user pertama
+          }
+          addLog("Database personel untuk Document Scanner berhasil disinkronkan.", "success");
+        }
+      } catch (error) {
+        console.error("Error fetching personal data:", error);
+        addLog("Gagal memuat daftar personel dari server API.", "error");
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+    fetchPersonalData();
+  }, []);
 
   const showToast = (message, type = "success") => {
     const cleanMsg = message ? message.replace(/\0/g, '').trim() : "Sistem Siap";
@@ -640,16 +677,39 @@ const DocumentScannerModule = ({ data }) => {
 
   useEffect(() => { if (capturedImage) applyFilterToCanvas(); }, [capturedImage, filter, applyFilterToCanvas]);
 
+  // const saveToGallery = () => {
+  //   if (!previewCanvasRef.current) return;
+  //   const finalImage = previewCanvasRef.current.toDataURL('image/jpeg');
+  //   setCapturedList(prev => [...prev, { id: Date.now(), data: finalImage }]);
+  //   setCapturedImage(null); setOriginalImage(null);
+  //   setStableFrames(0); setLiveCorners(null);
+  //   addLog("Hasil pangkasan dokumen ditambahkan ke koleksi galeri m-one.", "success");
+  // };
+
+  // --- FUNGSI HALAMAN GALERI: DOWNLOAD INDIVIDUAL JPG ---
   const saveToGallery = () => {
     if (!previewCanvasRef.current) return;
     const finalImage = previewCanvasRef.current.toDataURL('image/jpeg');
-    setCapturedList(prev => [...prev, { id: Date.now(), data: finalImage }]);
+    
+    // Cari objek personel yang sedang dipilih saat ini di selectbox
+    const currentUser = availableUsers.find(u => u.UserID.toString() === selectedUserId);
+    // Bersihkan karakter spasi pada nama personel agar aman dibaca filesystem berkas
+    const formattedName = currentUser ? currentUser.Name.trim().replace(/\s+/g, '_') : 'DOC';
+    
+    // Format penamaan default kronologis: NAMA_PERSONEL_INDEX
+    const defaultDocLabel = `${formattedName}_${capturedList.length + 1}`;
+
+    setCapturedList(prev => [...prev, { 
+      id: Date.now(), 
+      data: finalImage,
+      defaultName: defaultDocLabel // Menyimpan properti nama default permanen per item
+    }]);
+
     setCapturedImage(null); setOriginalImage(null);
     setStableFrames(0); setLiveCorners(null);
-    addLog("Hasil pangkasan dokumen ditambahkan ke koleksi galeri m-one.", "success");
+    addLog(`Hasil pangkasan dokumen "${defaultDocLabel}" disimpan ke terminal temporary gallery.`, "success");
   };
 
-  // --- FUNGSI HALAMAN GALERI: DOWNLOAD INDIVIDUAL JPG ---
   const handleDownloadJPG = (imageData, index) => {
     const link = document.createElement('a');
     link.href = imageData;
@@ -661,8 +721,32 @@ const DocumentScannerModule = ({ data }) => {
   };
 
   const generatePDF = async () => {
-    if (capturedList.length === 0) return;
+    // if (capturedList.length === 0) return;
+    if (capturedList.length === 0) {
+      addLog("Gagal ekspor: Galeri dokumen masih kosong.", "error");
+      return;
+    }
+
+    // Ambil nama personel aktif untuk dijadikan nama default usulan popup prompt PDF
+    const currentUser = availableUsers.find(u => u.UserID.toString() === selectedUserId);
+    const formattedPersonelName = currentUser ? currentUser.Name.trim().replace(/\s+/g, '_') : 'SCAN';
+
+    // --- FITUR BARU: POP UP PROMPT UNTUK RENAME FILE PDF ---
+    const defaultFileName = `M1_PDF_${formattedPersonelName}_${Date.now()}`;
+    const userFileName = window.prompt(
+      "Masukkan nama file untuk ekspor PDF Anda:", 
+      defaultFileName
+    );
+
+    if (userFileName === null) {
+      addLog("Ekspor PDF dibatalkan oleh pengguna.", "info");
+      return;
+    }
+
+    const finalFileName = userFileName.trim() || defaultFileName;
     setIsExporting(true);
+    addLog(`Memulai generate ${capturedList.length} dokumen ke format PDF...`, "info");
+
     try {
       if (typeof window !== 'undefined' && !window.jspdf) {
         const script = document.createElement('script');
@@ -672,8 +756,21 @@ const DocumentScannerModule = ({ data }) => {
       }
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF();
+
+      // Salin susunan galeri terbalik untuk mencocokkan tampilan visual urutan kronologis
+      const orderedList = [...capturedList].reverse();
+
       for (let i = 0; i < capturedList.length; i++) {
         if (i > 0) pdf.addPage();
+        const item = orderedList[i];
+        const docIndex = capturedList.length - i;
+
+        // Ambil nama kustom jika ada, jika tidak gunakan fallback standar DOC_X
+        // const finalDocName = customDocNames[item.id] || `DOC_${docIndex}`;
+
+        // Mengambil nama kustom per gambar yang ada di state (jika Anda menerapkan fitur rename per item sebelumnya)
+        const finalDocName = customDocNames && customDocNames[item.id] ? customDocNames[item.id] : `DOC_${docIndex}`;
+
         const img = new Image(); img.src = capturedList[i].data;
         await new Promise(r => img.onload = r);
         const pW = pdf.internal.pageSize.getWidth();
@@ -681,9 +778,18 @@ const DocumentScannerModule = ({ data }) => {
         const ratio = Math.min(pW / img.width, pH / img.height);
         const iW = img.width * ratio; const iH = img.height * ratio;
         pdf.addImage(capturedList[i].data, 'JPEG', (pW - iW) / 2, (pH - iH) / 2, iW, iH);
+
+        // Opsional: Menuliskan teks nama dokumen di pojok atas halaman PDF
+        pdf.setFont("Courier", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(120, 120, 120);
+        pdf.text(finalDocName, 10, 10);
       }
-      pdf.save(`M1_CamScan_${Date.now()}.pdf`);
-      showToast("PDF Dokumen Berhasil Diekspor", "success");
+      // pdf.save(`M1_CamScan_${Date.now()}.pdf`);
+      // showToast("PDF Dokumen Berhasil Diekspor", "success");
+      // Simpan file PDF dengan nama final yang telah ditentukan dari pop-up prompt
+      pdf.save(`${finalFileName}.pdf`);
+      addLog(`Berkas PDF "${finalFileName}.pdf" berhasil diekspor ke storage lokal.`, "success");
     } catch (err) { addLog("Gagal ekspor PDF.", "error"); }
     finally { setIsExporting(false); }
   };
@@ -768,25 +874,64 @@ const DocumentScannerModule = ({ data }) => {
           </div>
 
           {/* KUNCI PERBAIKAN: MODE SELECTOR SEKARANG BERADA DI SINI (DI ATAS TOMBOL SEBENARNYA) */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-zinc-400 uppercase font-bold tracking-widest block">
-              Pilih Mode Pemindaian Dokumen
-            </label>
-            <div className="bg-black p-1 rounded-sm border border-[#00ffff]/20 flex gap-1 w-full md:w-fit">
-              <button 
-                type="button"
-                onClick={() => { setDetectionMode('manual'); setStableFrames(0); }} 
-                className={`flex-1 md:flex-none px-6 py-2 text-xs font-bold uppercase transition-all ${detectionMode === 'manual' ? 'bg-[#00ffff] text-black' : 'text-zinc-500 hover:text-white'}`}
-              >
-                Manual Mode
-              </button>
-              <button 
-                type="button"
-                onClick={() => { setDetectionMode('auto'); setStableFrames(0); }} 
-                className={`flex-1 md:flex-none px-6 py-2 text-xs font-bold uppercase transition-all ${detectionMode === 'auto' ? 'bg-emerald-600 text-white' : 'text-zinc-500 hover:text-white'}`}
-              >
-                Auto Capture
-              </button>
+          {/* KONFIGURASI PARAMETER & SELECTBOX TARGET PERSONEL */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+            {/* Kolom Kiri: Pilih Mode Pemindaian */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-zinc-400 uppercase font-bold tracking-widest block">
+                Pilih Mode Pemindaian Dokumen
+              </label>
+              <div className="bg-black p-1 rounded-sm border border-[#00ffff]/20 flex gap-1 w-full md:w-fit">
+                <button 
+                  type="button"
+                  onClick={() => { setDetectionMode('manual'); setStableFrames(0); }} 
+                  className={`flex-1 md:flex-none px-6 py-2 text-xs font-bold uppercase transition-all ${detectionMode === 'manual' ? 'bg-[#00ffff] text-black' : 'text-zinc-500 hover:text-white'}`}
+                >
+                  Manual Mode
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setDetectionMode('auto'); setStableFrames(0); }} 
+                  className={`flex-1 md:flex-none px-6 py-2 text-xs font-bold uppercase transition-all ${detectionMode === 'auto' ? 'bg-emerald-600 text-white' : 'text-zinc-500 hover:text-white'}`}
+                >
+                  Auto Capture
+                </button>
+              </div>
+            </div>
+
+            {/* Kolom Kanan: Selectbox Target Personel (Sinkronisasi dengan Modul Fingerprint) */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-zinc-400 uppercase font-black tracking-widest block flex items-center gap-1">
+                <User size={12} className="text-[#00ffff]" /> Target Personel Log Berkas
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => {
+                    setSelectedUserId(e.target.value);
+                    const userObj = availableUsers.find(u => u.UserID.toString() === e.target.value);
+                    if (userObj) addLog(`Target log berkas dialihkan ke personel: ${userObj.name}`, "info");
+                  }}
+                  disabled={isLoadingUsers || availableUsers.length === 0}
+                  className="w-full bg-black border border-[#00ffff]/30 focus:border-[#00ffff] p-2.5 text-[#00ffff] text-xs font-bold font-mono outline-none transition-colors cursor-pointer rounded-sm appearance-none pr-8"
+                >
+                  {isLoadingUsers ? (
+                    <option value="">Memuat data personel...</option>
+                  ) : availableUsers.length === 0 ? (
+                    <option value="">Database personel kosong</option>
+                  ) : (
+                    availableUsers.map((user) => (
+                      <option key={user.Id} value={user.UserID} className="bg-zinc-950 text-[#00ffff]">
+                        {user.Name.toUpperCase()} [{user.UserID}]
+                      </option>
+                    ))
+                  )}
+                </select>
+                {/* Aksesori panah kustom indikator siber */}
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[#00ffff]/50 text-[10px]">
+                  ▼
+                </div>
+              </div>
             </div>
           </div>
 
@@ -947,9 +1092,87 @@ const DocumentScannerModule = ({ data }) => {
                             </div>
                           </div>
                           <div className="flex items-center justify-between mt-auto">
-                            <span className="text-[14px] text-zinc-500 font-bold">DOC_{docIndex}</span>
+                            {/* <span className="text-[14px] text-zinc-500 font-bold">DOC_{docIndex}</span> */}
+                            <div className="flex items-center justify-between mt-auto gap-2">
+                            {/* INPUT RE-NAME INTERAKTIF DENGAN TEMA TERMINAL CYBER */}
+                            {/* <div className="flex-1 min-w-0 relative group/input">
+                              <input
+                                type="text"
+                                value={customDocNames[item.id] !== undefined ? customDocNames[item.id] : `DOC_${docIndex}`}
+                                onChange={(e) => {
+                                  setCustomDocNames(prev => ({
+                                    ...prev,
+                                    [item.id]: e.target.value
+                                  }));
+                                }}
+                                className="w-full bg-transparent text-[13px] text-zinc-400 font-bold font-mono outline-none border-b border-transparent hover:border-zinc-700 focus:border-[#00ffff] focus:text-[#00ffff] py-0.5 transition-all truncate"
+                                title="Klik untuk mengubah nama dokumen"
+                              />
+                            </div> */}
+                            {/* INPUT RE-NAME INTERAKTIF DENGAN FALLBACK NAMA PERSONEL */}
+                            <div className="flex-1 min-w-0 relative group/input">
+                              <input
+                                type="text"
+                                value={customDocNames[item.id] !== undefined ? customDocNames[item.id] : (item.defaultName || `DOC_${docIndex}`)}
+                                onChange={(e) => {
+                                  setCustomDocNames(prev => ({
+                                    ...prev,
+                                    [item.id]: e.target.value
+                                  }));
+                                }}
+                                className="w-full bg-transparent text-[13px] text-zinc-400 font-bold font-mono outline-none border-b border-transparent hover:border-zinc-700 focus:border-[#00ffff] focus:text-[#00ffff] py-0.5 transition-all truncate"
+                                title="Klik untuk merename nama file jepretan"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center gap-2 shrink-0">
+                              {/* TOMBOL UNDUH JPG */}
+                              {/* <button 
+                                onClick={() => {
+                                  const finalName = customDocNames[item.id] || `DOC_${docIndex}`;
+                                  // Memanggil fungsi download dengan nama kustom baru
+                                  const link = document.createElement('a');
+                                  link.href = item.data;
+                                  link.download = `${finalName}_${Date.now()}.jpg`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  addLog(`Dokumen ${finalName} berhasil diunduh sebagai JPG.`, "success");
+                                }} 
+                                className="text-emerald-400 hover:text-emerald-300 p-1 transition-colors" 
+                                title="Unduh JPG"
+                              >
+                                <Download size={15} />
+                              </button>
+                              
+                              <button onClick={() => setCapturedList(capturedList.filter(l => l.id !== item.id))} className="text-rose-500 hover:text-rose-400 p-1 transition-colors" title="Hapus"><Trash2 size={15} /></button> */}
+                            </div>
+                          </div>
                             <div className="flex items-center gap-2">
-                              <button onClick={() => handleDownloadJPG(item.data, docIndex)} className="text-emerald-400 hover:text-emerald-300 p-1 transition-colors" title="Unduh JPG"><Download size={15} /></button>
+                              {/* <button onClick={() => handleDownloadJPG(item.data, docIndex)} className="text-emerald-400 hover:text-emerald-300 p-1 transition-colors" title="Unduh JPG"><Download size={15} /></button> */}
+                              {/* TOMBOL UNDUH JPG DENGAN SINKRONISASI NAMA TOTAL */}
+                              <button 
+                                onClick={() => {
+                                  // Mengambil string nama yang sedang tampil pada input text di atas
+                                  const finalImageName = customDocNames[item.id] !== undefined 
+                                    ? customDocNames[item.id] 
+                                    : (item.defaultName || `DOC_${docIndex}`);
+                                  
+                                  const link = document.createElement('a');
+                                  link.href = item.data;
+                                  // Memaksa download file menggunakan string nama gabungan personel/kustom
+                                  link.download = `${finalImageName.trim().replace(/\s+/g, '_')}.jpg`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  
+                                  addLog(`Berkas gambar "${finalImageName}.jpg" berhasil diunduh.`, "success");
+                                }} 
+                                className="text-emerald-400 hover:text-emerald-300 p-1 transition-colors hover:bg-emerald-500/10 rounded-sm" 
+                                title="Unduh JPG"
+                              >
+                                <Download size={14} />
+                              </button>
                               <button onClick={() => setCapturedList(capturedList.filter(l => l.id !== item.id))} className="text-rose-500 hover:text-rose-400 p-1 transition-colors" title="Hapus"><Trash2 size={15} /></button>
                             </div>
                           </div>
@@ -1104,36 +1327,113 @@ const DocumentScannerModule = ({ data }) => {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-zinc-950 border-2 border-[#00ffff]/40 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl relative rounded-sm overflow-hidden"
+              /* LOGIKAL KELAS TAILWIND DINAMIS UNTUK UKURAN WINDOW POP UP */
+              className={`bg-zinc-950 border-2 border-[#00ffff]/40 flex flex-col shadow-2xl relative rounded-sm overflow-hidden transition-all duration-300 ${
+                isViewFullscreen 
+                  ? 'w-screen h-screen max-w-none max-h-none !p-0 m-0 border-0' 
+                  : 'w-full max-w-5xl h-[85vh]'
+              }`}
             >
               {/* Header Modal */}
-              <div className="bg-zinc-900 border-b border-[#00ffff]/20 px-6 py-3.5 flex items-center justify-between">
+              <div className="bg-zinc-900 border-b border-[#00ffff]/20 px-6 py-3.5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2 overflow-hidden mr-4">
                   <FileText size={16} className="text-[#00ffff]" />
                   <span className="text-xs font-black uppercase tracking-widest text-[#00ffff] truncate">
                     Viewer Terminal: {viewDocumentName}
                   </span>
                 </div>
-                <button onClick={() => setIsViewModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-1 bg-black/40 rounded-sm border border-zinc-800">
-                  <X size={16} />
-                </button>
+
+                {/* Kontrol Kanan Atas: Zoom, Maximize/Minimize & Close Buttons */}
+                <div className="flex items-center gap-3 shrink-0">
+                  {/* Panel Kontrol Zoom */}
+                  <div className="flex items-center bg-black/40 border border-zinc-800 rounded-sm px-2 py-1 gap-2">
+                    <button 
+                      onClick={() => setViewZoomScale(prev => Math.max(0.5, prev - 0.25))}
+                      disabled={viewZoomScale <= 0.5}
+                      className="w-6 h-6 border border-zinc-700 text-zinc-400 hover:text-[#00ffff] hover:border-[#00ffff] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-black text-sm transition-all rounded-sm"
+                      title="Zoom Out"
+                    >
+                      -
+                    </button>
+                    
+                    <span className="text-[10px] text-zinc-400 font-bold min-w-[45px] text-center font-mono tracking-wider">
+                      {Math.round(viewZoomScale * 100)}%
+                    </span>
+
+                    <button 
+                      onClick={() => setViewZoomScale(prev => Math.min(3, prev + 0.25))}
+                      disabled={viewZoomScale >= 3}
+                      className="w-6 h-6 border border-zinc-700 text-zinc-400 hover:text-[#00ffff] hover:border-[#00ffff] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-black text-sm transition-all rounded-sm"
+                      title="Zoom In"
+                    >
+                      +
+                    </button>
+
+                    <div className="w-px h-3 bg-zinc-800 mx-0.5"></div>
+
+                    {/* Reset Zoom Button */}
+                    <button 
+                      onClick={() => setViewZoomScale(1)}
+                      disabled={viewZoomScale === 1}
+                      className="text-[9px] text-[#00ffff] disabled:text-zinc-600 font-bold uppercase tracking-wider px-1 disabled:no-underline hover:underline transition-all"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  {/* Garis Pembatas */}
+                  <div className="w-px h-5 bg-zinc-800"></div>
+
+                  {/* TOMBOL MAXIMIZE / MINIMIZE (RESTORE SIZE) */}
+                  <button
+                    onClick={() => setIsViewFullscreen(!isViewFullscreen)}
+                    className="text-zinc-400 hover:text-[#00ffff] transition-colors p-1.5 bg-black/40 rounded-sm border border-zinc-800 flex items-center justify-center"
+                    title={isViewFullscreen ? "Exit Fullscreen (Minimize)" : "Fullscreen (Maximize)"}
+                  >
+                    {isViewFullscreen ? (
+                      /* Menggunakan text 'Minimize' / Ikon bawaan dari Lucide */
+                      <span className="text-[10px] font-black uppercase tracking-wider px-1">Minimize</span>
+                    ) : (
+                      <Maximize2 size={14} />
+                    )}
+                  </button>
+
+                  {/* Tombol Close Terminal */}
+                  <button 
+                    onClick={() => { 
+                      setIsViewModalOpen(false); 
+                      setViewZoomScale(1); 
+                      setIsViewFullscreen(false); // Reset ukuran saat ditutup
+                    }} 
+                    className="text-zinc-500 hover:text-white transition-colors p-1.5 bg-black/40 rounded-sm border border-zinc-800 flex items-center justify-center"
+                    title="Close Terminal"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
               </div>
 
               {/* Konten Utama Renderer */}
-              <div className="flex-1 bg-zinc-900/40 relative overflow-auto p-4 flex items-center justify-center">
+              <div className="flex-1 bg-zinc-900/40 relative overflow-auto p-4 flex items-center justify-center custom-scrollbar">
                 {viewDocumentType === 'pdf' ? (
-                  /* Render PDF menggunakan Iframe bawaan browser */
-                  <iframe 
-                    src={viewDocumentFile} 
-                    className="w-full h-full border-0 bg-zinc-900 rounded-sm"
-                    title="PDF Document Viewer"
-                  />
+                  <div 
+                    className="w-full h-full transition-transform duration-200 origin-center"
+                    style={{ transform: `scale(${viewZoomScale})` }}
+                  >
+                    <iframe 
+                      src={viewDocumentFile} 
+                      className="w-full h-full border-0 bg-zinc-900 rounded-sm shadow-2xl"
+                      title="PDF Document Viewer"
+                    />
+                  </div>
                 ) : (
-                  /* Render Gambar jika extension berupa citra grafik */
-                  <div className="w-full h-full flex items-center justify-center p-2">
+                  <div 
+                    className="w-full h-full flex items-center justify-center p-2 transition-transform duration-200 origin-center"
+                    style={{ transform: `scale(${viewZoomScale})` }}
+                  >
                     <img 
                       src={viewDocumentFile} 
-                      className="max-w-full max-h-full object-contain shadow-2xl border border-zinc-800" 
+                      className="max-w-full max-h-full object-contain shadow-2xl border border-zinc-800 bg-black/50" 
                       alt="Local Uploaded Render" 
                     />
                   </div>
@@ -1141,11 +1441,18 @@ const DocumentScannerModule = ({ data }) => {
               </div>
 
               {/* Footer Modal */}
-              <div className="bg-zinc-950 px-6 py-2 border-t border-zinc-900 flex justify-between items-center">
+              <div className="bg-zinc-950 px-6 py-2 border-t border-zinc-900 flex justify-between items-center shrink-0">
                 <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">
                   M-One File System Integration Core v3
                 </span>
-                <button onClick={() => setIsViewModalOpen(false)} className="px-5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 font-black text-[10px] uppercase tracking-widest transition-all rounded-sm">
+                <button 
+                  onClick={() => { 
+                    setIsViewModalOpen(false); 
+                    setViewZoomScale(1); 
+                    setIsViewFullscreen(false); 
+                  }} 
+                  className="px-5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 font-black text-[10px] uppercase tracking-widest transition-all rounded-sm"
+                >
                   Close Terminal
                 </button>
               </div>

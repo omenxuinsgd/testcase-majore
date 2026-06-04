@@ -145,13 +145,18 @@ const TerminalShell = ({
             }, []);
 
             // Logika seleksi string teks status berdasarkan level & kondisi pengisian daya
-            let batteryStatusText = "SECURE";
+            let batteryStatusText = "";
+            let batteryTextColor = "#00ffff"; // Default warna Cyan untuk kondisi normal / penuh
+
             if (systemBattery.level === 100) {
-              batteryStatusText = "FULLY CHARGED";
+              batteryStatusText = "Baterai Penuh";
+              batteryTextColor = "#00ffff"; // Cyan
             } else if (systemBattery.charging) {
               batteryStatusText = "CHARGING...";
+              batteryTextColor = "#10b981"; // Mengubah tulisan status menjadi Hijau saat dicas
             } else if (systemBattery.level <= 20) {
-              batteryStatusText = "LOW BATTERY";
+              batteryStatusText = "Baterai Lemah";
+              batteryTextColor = "#ef4444"; // Mengubah tulisan status menjadi Merah saat baterai low
             }
 
             // Logika penyesuaian warna indikator cairan baterai isi (Fill Color)
@@ -188,8 +193,16 @@ const TerminalShell = ({
                     style={{ transition: 'width 0.5s ease-in-out' }}
                   />
                 </svg>
-                <span>
+                {/* <span>
                   BATTERY_LEVEL: {systemBattery.level}% [{batteryStatusText}]
+                </span> */}
+                {/* Cetak output teks dengan style warna dinamis sesuai kondisi */}
+                <span>
+                  BATTERY_LEVEL: {systemBattery.level}% {batteryStatusText && (
+                    <span style={{ color: batteryTextColor }} className="transition-colors duration-300">
+                      [{batteryStatusText}]
+                    </span>
+                  )}
                 </span>
               </div>
             );
